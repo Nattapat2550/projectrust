@@ -1,37 +1,25 @@
-use axum::{extract::State, Json, extract::Path};
+use axum::{extract::{State, Path}, Json};
 use crate::config::db::DB;
 use crate::core::errors::AppError;
 use super::{service, schema::*};
 
-pub async fn find_user(
-    State(db): State<DB>,
-    Json(body): Json<FindUserBody>,
-) -> Result<Json<UserLite>, AppError> {
+pub async fn find_user(State(db): State<DB>, Json(body): Json<FindUserBody>) -> Result<Json<UserLite>, AppError> {
     let user = service::find_user(&db, body).await?;
     Ok(Json(user))
 }
 
 // ✅ เพิ่ม Controller นี้
-pub async fn create_user_email(
-    State(db): State<DB>,
-    Json(body): Json<CreateUserEmailBody>,
-) -> Result<Json<UserLite>, AppError> {
+pub async fn create_user_email(State(db): State<DB>, Json(body): Json<CreateUserEmailBody>) -> Result<Json<UserLite>, AppError> {
     let user = service::create_user_email(&db, body).await?;
     Ok(Json(user))
 }
 
-pub async fn get_verification_token(
-    State(db): State<DB>,
-    Path(email): Path<String>,
-) -> Result<Json<String>, AppError> {
+pub async fn get_verification_token(State(db): State<DB>, Path(email): Path<String>) -> Result<Json<String>, AppError> {
     let token = service::get_verification_token(&db, email).await?;
     Ok(Json(token))
 }
 
-pub async fn get_reset_token(
-    State(db): State<DB>,
-    Path(email): Path<String>,
-) -> Result<Json<String>, AppError> {
+pub async fn get_reset_token(State(db): State<DB>, Path(email): Path<String>) -> Result<Json<String>, AppError> {
     let token = service::get_reset_token(&db, email).await?;
     Ok(Json(token))
 }
@@ -46,11 +34,7 @@ pub async fn list_clients(State(db): State<DB>) -> Result<Json<Vec<ClientRow>>, 
     Ok(Json(clients))
 }
 
-pub async fn set_client_active(
-    State(db): State<DB>,
-    Path(id): Path<i32>,
-    Json(body): Json<serde_json::Value>,
-) -> Result<Json<()>, AppError> {
+pub async fn set_client_active(State(db): State<DB>, Path(id): Path<i32>, Json(body): Json<serde_json::Value>) -> Result<Json<()>, AppError> {
     let active = body.get("is_active").and_then(|v| v.as_bool()).unwrap_or(true);
     service::set_client_active(&db, id, active).await?;
     Ok(Json(()))

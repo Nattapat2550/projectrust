@@ -1,12 +1,10 @@
 use crate::config::{db::DB, env::Env};
 use crate::core::errors::AppError;
 use crate::core::utils::jwt;
-
 use super::schema::*;
 use bcrypt::{hash, verify, DEFAULT_COST};
-// ลบ use sqlx::Row; ออกแล้ว
 
-// Helper struct สำหรับรับค่าจาก DB ให้ตรงกับ UserRow ใน pure-api
+// Helper Struct สำหรับรับค่าจาก DB
 #[derive(sqlx::FromRow)]
 struct UserRow {
     id: i32,
@@ -31,16 +29,13 @@ pub async fn register(db: &DB, env: &Env, body: RegisterBody) -> Result<AuthResp
         return Err(AppError::bad_request("email is required"));
     }
 
-    // Hash Password (ถ้ามี)
     let pw_hash = if !password_input.is_empty() {
-        Some(hash(password_input, DEFAULT_COST).map_err(|_| {
-            AppError::internal("Password hash error")
-        })?)
+        Some(hash(password_input, DEFAULT_COST).map_err(|_| AppError::internal("Hash error"))?)
     } else {
         None
     };
 
-    // Insert ลง DB
+    // ✅ แก้ SQL: name -> username
     let result = sqlx::query_as::<_, UserRow>(
         r#"
         INSERT INTO users (username, email, password_hash, role, is_email_verified)
@@ -54,7 +49,6 @@ pub async fn register(db: &DB, env: &Env, body: RegisterBody) -> Result<AuthResp
     .fetch_one(&db.pool)
     .await;
 
-    // Handle Error
     let u = match result {
         Ok(row) => row,
         Err(sqlx::Error::Database(db_err)) => {
@@ -87,6 +81,7 @@ pub async fn register(db: &DB, env: &Env, body: RegisterBody) -> Result<AuthResp
 pub async fn login(db: &DB, env: &Env, body: LoginBody) -> Result<AuthResponse, AppError> {
     let email = body.email.trim().to_lowercase();
 
+    // ✅ แก้ SQL
     let u = sqlx::query_as::<_, UserRow>(
         r#"
         SELECT id, username, email, password_hash, role, profile_picture_url, is_email_verified
@@ -99,7 +94,6 @@ pub async fn login(db: &DB, env: &Env, body: LoginBody) -> Result<AuthResponse, 
     .await?
     .ok_or_else(|| AppError::unauthorized("INVALID_CREDENTIALS", "Invalid credentials"))?;
 
-    // Verify Password
     let is_valid = match &u.password_hash {
         Some(hash) => verify(&body.password, hash).unwrap_or(false),
         None => false,
@@ -130,7 +124,7 @@ pub async fn google_oauth(db: &DB, env: &Env, body: GoogleOAuthBody) -> Result<A
     let provider = "google";
     let oauth_id = body.oauth_id;
 
-    // 1. Try by OAuth Provider/ID
+    // 1. Try by OAuth
     let mut u = sqlx::query_as::<_, UserRow>(
         r#"
         SELECT id, username, email, password_hash, role, profile_picture_url, is_email_verified
@@ -144,7 +138,7 @@ pub async fn google_oauth(db: &DB, env: &Env, body: GoogleOAuthBody) -> Result<A
     .await?;
 
     if let Some(user) = u {
-        // Update optional fields
+        // Update logic (ใช้ username)
         u = Some(sqlx::query_as::<_, UserRow>(
             r#"
             UPDATE users SET
@@ -156,81 +150,34 @@ pub async fn google_oauth(db: &DB, env: &Env, body: GoogleOAuthBody) -> Result<A
             RETURNING id, username, email, password_hash, role, profile_picture_url, is_email_verified
             "#
         )
-        .bind(user.id)
-        .bind(&email)
-        .bind(&body.picture_url)
-        .bind(&body.username)
-        .fetch_one(&db.pool)
-        .await?);
+        .bind(user.id).bind(&email).bind(&body.picture_url).bind(&body.username)
+        .fetch_one(&db.pool).await?);
     } else {
-        // 2. Try by Email
-        let by_email = sqlx::query_as::<_, UserRow>(
+        // 2. Try by Email or Create New
+        let username = body.username.unwrap_or_else(|| email.split('@').next().unwrap_or("user").to_string());
+        
+        u = Some(sqlx::query_as::<_, UserRow>(
             r#"
-            SELECT id, username, email, password_hash, role, profile_picture_url, is_email_verified
-            FROM users
-            WHERE email = $1
+            INSERT INTO users (username, email, password_hash, role, is_email_verified, oauth_provider, oauth_id, profile_picture_url)
+            VALUES ($1, $2, NULL, 'user', TRUE, $3, $4, $5)
+            ON CONFLICT (email) DO UPDATE SET 
+                oauth_provider = $3, oauth_id = $4, is_email_verified = TRUE 
+            RETURNING id, username, email, password_hash, role, profile_picture_url, is_email_verified
             "#
         )
-        .bind(&email)
-        .fetch_optional(&db.pool)
-        .await?;
-
-        if let Some(user) = by_email {
-            // Update OAuth info
-            u = Some(sqlx::query_as::<_, UserRow>(
-                r#"
-                UPDATE users SET
-                    oauth_provider = $2,
-                    oauth_id = $3,
-                    is_email_verified = TRUE,
-                    profile_picture_url = COALESCE($4, profile_picture_url),
-                    username = COALESCE(username, $5)
-                WHERE id = $1
-                RETURNING id, username, email, password_hash, role, profile_picture_url, is_email_verified
-                "#
-            )
-            .bind(user.id)
-            .bind(provider)
-            .bind(&oauth_id)
-            .bind(&body.picture_url)
-            .bind(&body.username)
-            .fetch_one(&db.pool)
-            .await?);
-        } else {
-            // 3. Create New User
-            let username = body.username.unwrap_or_else(|| email.split('@').next().unwrap_or("user").to_string());
-            
-            u = Some(sqlx::query_as::<_, UserRow>(
-                r#"
-                INSERT INTO users (username, email, password_hash, role, is_email_verified, oauth_provider, oauth_id, profile_picture_url)
-                VALUES ($1, $2, NULL, 'user', TRUE, $3, $4, $5)
-                RETURNING id, username, email, password_hash, role, profile_picture_url, is_email_verified
-                "#
-            )
-            .bind(username)
-            .bind(&email)
-            .bind(provider)
-            .bind(&oauth_id)
-            .bind(&body.picture_url)
-            .fetch_one(&db.pool)
-            .await?);
-        }
+        .bind(username).bind(&email).bind(provider).bind(&oauth_id).bind(&body.picture_url)
+        .fetch_one(&db.pool).await?);
     }
 
-    let u = u.ok_or_else(|| AppError::unauthorized("OAUTH_LOGIN_FAILED", "OAuth login failed"))?;
-
+    let u = u.ok_or_else(|| AppError::unauthorized("OAUTH_FAILED", "OAuth failed"))?;
     let token = jwt::sign(u.id, u.email.clone(), u.username.clone().unwrap_or_default(), u.role.clone(), env)
         .map_err(|_| AppError::internal("Token sign error"))?;
 
     Ok(AuthResponse {
         token,
         user: UserResponse {
-            id: u.id,
-            email: u.email,
-            username: u.username,
-            role: u.role,
-            profile_picture_url: u.profile_picture_url,
-            is_email_verified: u.is_email_verified,
+            id: u.id, email: u.email, username: u.username, role: u.role,
+            profile_picture_url: u.profile_picture_url, is_email_verified: u.is_email_verified,
         },
     })
 }

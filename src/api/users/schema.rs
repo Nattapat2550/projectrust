@@ -6,11 +6,12 @@ pub struct UserRow {
     pub email: String,
     pub username: Option<String>,
     pub role: String,
-    pub provider: String,
+    pub provider: Option<String>,
     pub is_verified: bool,
 }
 
-#[derive(Debug, Serialize, Deserialize)]
+// ✅ เพิ่ม Struct นี้
+#[derive(Debug, Deserialize)]
 pub struct UpdateRoleBody {
     pub role: String,
 }

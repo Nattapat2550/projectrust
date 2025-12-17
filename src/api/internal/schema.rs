@@ -5,7 +5,6 @@ pub struct FindUserBody {
     pub email: String,
 }
 
-// ✅ เพิ่ม Struct นี้
 #[derive(Debug, Deserialize)]
 pub struct CreateUserEmailBody {
     pub email: String,
@@ -15,7 +14,7 @@ pub struct CreateUserEmailBody {
 pub struct UserLite {
     pub id: i32,
     pub email: String,
-    pub username: Option<String>, // ✅ แก้จาก name เป็น username (nullable)
+    pub username: Option<String>, // ✅ แก้จาก name เป็น username
     pub role: String,
     pub provider: Option<String>,
     pub is_verified: bool,
