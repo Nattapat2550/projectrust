@@ -1,14 +1,12 @@
 use sqlx::Row;
-
 use crate::config::db::DB;
 use crate::core::errors::AppError;
-
 use super::schema::UserRow;
 
 pub async fn list_users(db: &DB) -> Result<Vec<UserRow>, AppError> {
     let rows = sqlx::query(
         r#"
-        SELECT id, email, name, role, provider, is_verified
+        SELECT id, email, username, role, provider, is_verified
         FROM users
         ORDER BY id DESC
         "#,
@@ -21,7 +19,7 @@ pub async fn list_users(db: &DB) -> Result<Vec<UserRow>, AppError> {
         out.push(UserRow {
             id: r.get("id"),
             email: r.get("email"),
-            name: r.get("name"),
+            username: r.try_get("username").ok(), // ✅ ใช้ try_get เพื่อความปลอดภัย
             role: r.get("role"),
             provider: r.get("provider"),
             is_verified: r.get("is_verified"),
@@ -41,7 +39,7 @@ pub async fn update_role(db: &DB, id: i32, role: String) -> Result<UserRow, AppE
         UPDATE users
         SET role = $2
         WHERE id = $1
-        RETURNING id, email, name, role, provider, is_verified
+        RETURNING id, email, username, role, provider, is_verified
         "#,
     )
     .bind(id)
@@ -56,7 +54,7 @@ pub async fn update_role(db: &DB, id: i32, role: String) -> Result<UserRow, AppE
     Ok(UserRow {
         id: row.get("id"),
         email: row.get("email"),
-        name: row.get("name"),
+        username: row.try_get("username").ok(),
         role: row.get("role"),
         provider: row.get("provider"),
         is_verified: row.get("is_verified"),

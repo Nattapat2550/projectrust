@@ -1,26 +1,27 @@
 use serde::{Deserialize, Serialize};
 
-#[derive(Debug, Serialize, Deserialize)]
+#[derive(Debug, Deserialize)]
 pub struct FindUserBody {
     pub email: String,
 }
 
-#[derive(Debug, Serialize, Deserialize)]
+// ✅ เพิ่ม Struct นี้
+#[derive(Debug, Deserialize)]
+pub struct CreateUserEmailBody {
+    pub email: String,
+}
+
+#[derive(Debug, Serialize)]
 pub struct UserLite {
     pub id: i32,
     pub email: String,
-    pub name: String,
+    pub username: Option<String>, // ✅ แก้จาก name เป็น username (nullable)
     pub role: String,
-    pub provider: String,
+    pub provider: Option<String>,
     pub is_verified: bool,
 }
 
-#[derive(Debug, Serialize, Deserialize)]
-pub struct SetClientActiveBody {
-    pub is_active: bool,
-}
-
-#[derive(Debug, Serialize, Deserialize)]
+#[derive(Debug, Serialize)]
 pub struct ClientRow {
     pub id: i32,
     pub name: String,
@@ -28,15 +29,15 @@ pub struct ClientRow {
     pub is_active: bool,
 }
 
-#[derive(Debug, Serialize, Deserialize)]
+#[derive(Debug, Serialize)]
 pub struct HomepageHero {
     pub title: String,
-    pub subtitle: String,
-    pub cta_text: String,
-    pub cta_link: String,
+    pub subtitle: Option<String>,
+    pub cta_text: Option<String>,
+    pub cta_link: Option<String>,
 }
 
-#[derive(Debug, Serialize, Deserialize)]
+#[derive(Debug, Deserialize)]
 pub struct HomepageHeroBody {
     pub title: String,
     pub subtitle: String,
@@ -44,16 +45,16 @@ pub struct HomepageHeroBody {
     pub cta_link: String,
 }
 
-#[derive(Debug, Serialize, Deserialize)]
+#[derive(Debug, Serialize)]
 pub struct CarouselItem {
     pub id: i32,
     pub image_url: String,
-    pub title: String,
-    pub subtitle: String,
-    pub link: String,
+    pub title: Option<String>,
+    pub subtitle: Option<String>,
+    pub link: Option<String>,
 }
 
-#[derive(Debug, Serialize, Deserialize)]
+#[derive(Debug, Deserialize)]
 pub struct CreateCarouselBody {
     pub image_url: String,
     pub title: String,
@@ -61,7 +62,7 @@ pub struct CreateCarouselBody {
     pub link: String,
 }
 
-#[derive(Debug, Serialize, Deserialize)]
+#[derive(Debug, Deserialize)]
 pub struct UpdateCarouselBody {
     pub image_url: Option<String>,
     pub title: Option<String>,

@@ -4,7 +4,7 @@ use serde::{Deserialize, Serialize};
 pub struct UserRow {
     pub id: i32,
     pub email: String,
-    pub name: String,
+    pub username: Option<String>,
     pub role: String,
     pub provider: String,
     pub is_verified: bool,
