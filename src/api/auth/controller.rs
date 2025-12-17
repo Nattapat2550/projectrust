@@ -1,42 +1,41 @@
-use axum::{Extension, Json};
-use validator::Validate;
-use crate::config::{db::DB, env::Env};
+use axum::{extract::State, Json};
+use serde_json::json;
+
 use crate::core::errors::AppError;
-use super::schema::{LoginPayload, RegisterPayload};
+
+use super::schema::{GoogleOAuthBody, LoginBody, RegisterBody};
 use super::service;
-use serde_json::{json, Value};
 
 pub async fn register(
-    Extension(db): Extension<DB>,
-    Json(payload): Json<RegisterPayload>,
-) -> Result<Json<Value>, AppError> {
-    // Validate Input
-    if let Err(e) = payload.validate() {
-        return Err(AppError::ValidationError(e.to_string()));
-    }
-
-    let user = service::register(&db, payload).await?;
-    
-    Ok(Json(json!({
-        "status": "success",
-        "message": "User registered successfully",
-        "data": user
-    })))
+    State((db, env)): State<(crate::config::db::DB, crate::config::env::Env)>,
+    Json(body): Json<RegisterBody>,
+) -> Result<Json<serde_json::Value>, AppError> {
+    let out = service::register(&db, &env, body).await?;
+    Ok(Json(json!({ "ok": true, "data": out })))
 }
 
 pub async fn login(
-    Extension(db): Extension<DB>,
-    Extension(env): Extension<Env>,
-    Json(payload): Json<LoginPayload>,
-) -> Result<Json<Value>, AppError> {
-    if let Err(e) = payload.validate() {
-        return Err(AppError::ValidationError(e.to_string()));
-    }
+    State((db, env)): State<(crate::config::db::DB, crate::config::env::Env)>,
+    Json(body): Json<LoginBody>,
+) -> Result<Json<serde_json::Value>, AppError> {
+    let out = service::login(&db, &env, body).await?;
+    Ok(Json(json!({ "ok": true, "data": out })))
+}
 
-    let result = service::login(&db, &env, payload).await?;
+pub async fn google_oauth(
+    State((db, env)): State<(crate::config::db::DB, crate::config::env::Env)>,
+    Json(body): Json<GoogleOAuthBody>,
+) -> Result<Json<serde_json::Value>, AppError> {
+    let out = service::google_oauth(&db, &env, body).await?;
+    Ok(Json(json!({ "ok": true, "data": out })))
+}
 
-    Ok(Json(json!({
-        "status": "success",
-        "data": result
-    })))
+pub async fn me(req: axum::extract::Request) -> Result<Json<serde_json::Value>, AppError> {
+    let user = req
+        .extensions()
+        .get::<crate::core::middleware::jwt_auth::AuthUser>()
+        .cloned()
+        .ok_or_else(|| AppError::unauthorized("JWT_MISSING", "Missing auth user"))?;
+
+    Ok(Json(json!({ "ok": true, "data": user })))
 }

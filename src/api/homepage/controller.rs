@@ -1,23 +1,21 @@
-use axum::{extract::Path, Extension, Json};
-use serde_json::{json, Value};
+use axum::{extract::State, Json};
+use serde_json::json;
+
 use crate::config::db::DB;
 use crate::core::errors::AppError;
-use super::service;
-use super::schema::UpdateContentPayload;
 
-pub async fn get_section(
-    Extension(db): Extension<DB>,
-    Path(section_name): Path<String>,
-) -> Result<Json<Value>, AppError> {
-    let data = service::get_content(&db, &section_name).await?;
-    Ok(Json(json!(data)))
+use super::schema::HomepageHeroBody;
+use super::service;
+
+pub async fn get_hero(State(db): State<DB>) -> Result<Json<serde_json::Value>, AppError> {
+    let hero = service::get_hero(&db).await?;
+    Ok(Json(json!({ "ok": true, "data": hero })))
 }
 
-pub async fn update_section(
-    Extension(db): Extension<DB>,
-    Path(section_name): Path<String>,
-    Json(payload): Json<UpdateContentPayload>,
-) -> Result<Json<Value>, AppError> {
-    service::update_content(&db, &section_name, &payload.content).await?;
-    Ok(Json(json!({ "message": "Content updated" })))
+pub async fn put_hero(
+    State(db): State<DB>,
+    Json(body): Json<HomepageHeroBody>,
+) -> Result<Json<serde_json::Value>, AppError> {
+    let out = service::put_hero(&db, body).await?;
+    Ok(Json(json!({ "ok": true, "data": out })))
 }

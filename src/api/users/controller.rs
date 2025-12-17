@@ -1,26 +1,22 @@
-use axum::{extract::Path, Extension, Json};
-use serde_json::{json, Value};
+use axum::{extract::{Path, State}, Json};
+use serde_json::json;
+
 use crate::config::db::DB;
 use crate::core::errors::AppError;
+
+use super::schema::{UpdateRoleBody};
 use super::service;
 
-pub async fn get_users(Extension(db): Extension<DB>) -> Result<Json<Value>, AppError> {
-    let users = service::get_all_users(&db).await?;
-    Ok(Json(json!(users)))
+pub async fn list_users(State(db): State<DB>) -> Result<Json<serde_json::Value>, AppError> {
+    let items = service::list_users(&db).await?;
+    Ok(Json(json!({ "ok": true, "data": items })))
 }
 
-pub async fn get_user(
-    Extension(db): Extension<DB>,
+pub async fn update_role(
+    State(db): State<DB>,
     Path(id): Path<i32>,
-) -> Result<Json<Value>, AppError> {
-    let user = service::get_user_by_id(&db, id).await?;
-    Ok(Json(json!(user)))
-}
-
-pub async fn delete_user(
-    Extension(db): Extension<DB>,
-    Path(id): Path<i32>,
-) -> Result<Json<Value>, AppError> {
-    service::delete_user(&db, id).await?;
-    Ok(Json(json!({ "message": "User deleted successfully" })))
+    Json(body): Json<UpdateRoleBody>,
+) -> Result<Json<serde_json::Value>, AppError> {
+    let out = service::update_role(&db, id, body.role).await?;
+    Ok(Json(json!({ "ok": true, "data": out })))
 }

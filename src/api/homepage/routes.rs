@@ -1,11 +1,18 @@
-use axum::{routing::{get, put}, Router, Extension, middleware};
+use axum::{routing::{get, put}, Router, middleware};
+
 use crate::config::db::DB;
-use crate::core::middleware::jwt_auth::mw_jwt_auth; // เฉพาะ Admin/User ที่แก้ได้
+use crate::core::middleware::jwt_auth;
+
 use super::controller;
 
 pub fn routes(db: DB) -> Router {
     Router::new()
-        .route("/:section_name", get(controller::get_section))
-        .route("/:section_name", put(controller::update_section).layer(middleware::from_fn(mw_jwt_auth)))
-        .layer(Extension(db))
+        .route("/hero", get(controller::get_hero))
+        .route(
+            "/hero",
+            put(controller::put_hero)
+                .route_layer(middleware::from_fn(jwt_auth::mw_require_admin))
+                .route_layer(middleware::from_fn(jwt_auth::mw_jwt_auth)),
+        )
+        .with_state(db)
 }

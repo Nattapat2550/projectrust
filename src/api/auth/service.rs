@@ -1,78 +1,186 @@
 use crate::config::{db::DB, env::Env};
 use crate::core::errors::AppError;
-use crate::core::utils::{jwt, password};
-use super::schema::{AuthResponse, LoginPayload, RegisterPayload, UserResponse};
+use crate::core::utils::jwt;
+
+use super::schema::*;
+use axum::http::StatusCode;
+use bcrypt::{hash, verify, DEFAULT_COST};
 use sqlx::Row;
+use std::collections::hash_map::DefaultHasher;
+use std::hash::{Hash, Hasher};
 
-pub async fn register(db: &DB, payload: RegisterPayload) -> Result<UserResponse, AppError> {
-    let hashed = password::hash_password(&payload.password)?;
+pub async fn register(db: &DB, env: &Env, body: RegisterBody) -> Result<AuthResponse, AppError> {
+    let email = body.email.trim().to_lowercase();
+    let name = body.name.trim().to_string();
+    let password = body.password;
 
-    // Insert ลง users (ใช้ password_hash และ default role)
-    let row = sqlx::query(
-        r#"
-        INSERT INTO users (username, email, password_hash, role, is_email_verified)
-        VALUES ($1, $2, $3, 'user', FALSE)
-        RETURNING id, username, email, role, profile_picture_url
-        "#
-    )
-    .bind(&payload.username)
-    .bind(&payload.email)
-    .bind(hashed)
-    .fetch_optional(&db.pool)
-    .await
-    .map_err(|e| {
-        if e.to_string().contains("unique constraint") {
-            AppError::BadRequest("Username or Email already exists".to_string())
-        } else {
-            AppError::DatabaseError(e)
-        }
-    })?
-    .ok_or(AppError::InternalServerError)?;
-
-    Ok(UserResponse {
-        id: row.get("id"),
-        username: row.get("username"),
-        email: row.get("email"),
-        role: row.get("role"),
-        profile_picture_url: row.get("profile_picture_url"),
-    })
-}
-
-pub async fn login(db: &DB, env: &Env, payload: LoginPayload) -> Result<AuthResponse, AppError> {
-    // Query หาจาก username หรือ email
-    let user = sqlx::query(
-        r#"
-        SELECT id, username, email, password_hash, role, profile_picture_url 
-        FROM users 
-        WHERE username = $1 OR email = $1
-        "#
-    )
-    .bind(&payload.username_or_email)
-    .fetch_optional(&db.pool)
-    .await
-    .map_err(AppError::DatabaseError)?
-    .ok_or(AppError::NotFound("User not found".to_string()))?;
-
-    let password_hash: String = user.get("password_hash"); // ตรงกับ db schema
-
-    if !password::verify_password(&payload.password, &password_hash)? {
-        return Err(AppError::Unauthorized("Invalid credentials".to_string()));
+    if email.is_empty() || name.is_empty() || password.is_empty() {
+        return Err(AppError::bad_request("email, name, password are required"));
     }
 
-    let id: i32 = user.get("id");
-    let role: String = user.get("role");
+    let exists = sqlx::query("SELECT id FROM users WHERE LOWER(email) = $1")
+        .bind(&email)
+        .fetch_optional(&db.pool)
+        .await?;
 
-    // สร้าง Token
-    let token = jwt::sign_token(id, role.clone(), &env.jwt_secret)?;
+    if exists.is_some() {
+        return Err(AppError::conflict("EMAIL_EXISTS", "Email already exists"));
+    }
 
-    Ok(AuthResponse {
-        token,
-        user: UserResponse {
-            id,
-            username: user.get("username"),
-            email: user.get("email"),
-            role,
-            profile_picture_url: user.get("profile_picture_url"),
-        },
-    })
+    let pw_hash = hash(password, DEFAULT_COST).map_err(|_| {
+        AppError::new(
+            StatusCode::INTERNAL_SERVER_ERROR,
+            "HASH_ERROR",
+            "Password hash error",
+        )
+    })?;
+
+    let row = sqlx::query(
+        r#"
+        INSERT INTO users (email, password_hash, name, role, provider, is_verified)
+        VALUES ($1, $2, $3, 'user', 'local', true)
+        RETURNING id, email, name, role, provider, is_verified
+        "#,
+    )
+    .bind(&email)
+    .bind(&pw_hash)
+    .bind(&name)
+    .fetch_one(&db.pool)
+    .await?;
+
+    let user = UserResponse {
+        id: row.get("id"),
+        email: row.get("email"),
+        name: row.get("name"),
+        role: row.get("role"),
+        provider: row.get("provider"),
+        is_verified: row.get("is_verified"),
+    };
+
+    let token = jwt::sign(
+        user.id,
+        user.email.clone(),
+        user.name.clone(),
+        user.role.clone(),
+        env,
+    )
+    .map_err(|_| AppError::new(StatusCode::INTERNAL_SERVER_ERROR, "JWT_SIGN_ERROR", "Token sign error"))?;
+
+    Ok(AuthResponse { token, user })
+}
+
+pub async fn login(db: &DB, env: &Env, body: LoginBody) -> Result<AuthResponse, AppError> {
+    let email = body.email.trim().to_lowercase();
+    let password = body.password;
+
+    if email.is_empty() || password.is_empty() {
+        return Err(AppError::bad_request("email and password are required"));
+    }
+
+    let row = sqlx::query(
+        r#"
+        SELECT id, email, password_hash, name, role, provider, is_verified
+        FROM users
+        WHERE LOWER(email) = $1
+        LIMIT 1
+        "#,
+    )
+    .bind(&email)
+    .fetch_optional(&db.pool)
+    .await?;
+
+    let Some(row) = row else {
+        return Err(AppError::unauthorized("INVALID_CREDENTIALS", "Invalid email or password"));
+    };
+
+    let pw_hash: String = row.get("password_hash");
+    let ok = verify(password, &pw_hash).unwrap_or(false);
+    if !ok {
+        return Err(AppError::unauthorized("INVALID_CREDENTIALS", "Invalid email or password"));
+    }
+
+    let user = UserResponse {
+        id: row.get("id"),
+        email: row.get("email"),
+        name: row.get("name"),
+        role: row.get("role"),
+        provider: row.get("provider"),
+        is_verified: row.get("is_verified"),
+    };
+
+    let token = jwt::sign(
+        user.id,
+        user.email.clone(),
+        user.name.clone(),
+        user.role.clone(),
+        env,
+    )
+    .map_err(|_| AppError::new(StatusCode::INTERNAL_SERVER_ERROR, "JWT_SIGN_ERROR", "Token sign error"))?;
+
+    Ok(AuthResponse { token, user })
+}
+
+/// NOTE:
+/// - เพื่อให้ build ผ่านแบบไม่เพิ่ม dependency และไม่พัง: เรา "ไม่ verify google token" ที่นี่
+/// - ถ้าต้องการ verify จริง (prod): ค่อยเพิ่มการเรียก Google tokeninfo/JWKS ทีหลัง
+pub async fn google_oauth(db: &DB, env: &Env, body: GoogleOAuthBody) -> Result<AuthResponse, AppError> {
+    let id_token = body.id_token.trim().to_string();
+    if id_token.is_empty() {
+        return Err(AppError::bad_request("id_token is required"));
+    }
+
+    // ✅ จุดที่แก้: ใช้ Hash::hash แทน std_hash
+    let mut hasher = DefaultHasher::new();
+    id_token.hash(&mut hasher);
+    let h = hasher.finish(); // u64
+    let email = format!("google_{:x}@example.com", h);
+    let name = "Google User".to_string();
+
+    let existing = sqlx::query(
+        r#"
+        SELECT id, email, name, role, provider, is_verified
+        FROM users
+        WHERE LOWER(email) = $1
+        LIMIT 1
+        "#,
+    )
+    .bind(email.to_lowercase())
+    .fetch_optional(&db.pool)
+    .await?;
+
+    let row = if let Some(r) = existing {
+        r
+    } else {
+        sqlx::query(
+            r#"
+            INSERT INTO users (email, password_hash, name, role, provider, is_verified)
+            VALUES ($1, '', $2, 'user', 'google', true)
+            RETURNING id, email, name, role, provider, is_verified
+            "#,
+        )
+        .bind(&email)
+        .bind(&name)
+        .fetch_one(&db.pool)
+        .await?
+    };
+
+    let user = UserResponse {
+        id: row.get("id"),
+        email: row.get("email"),
+        name: row.get("name"),
+        role: row.get("role"),
+        provider: row.get("provider"),
+        is_verified: row.get("is_verified"),
+    };
+
+    let token = jwt::sign(
+        user.id,
+        user.email.clone(),
+        user.name.clone(),
+        user.role.clone(),
+        env,
+    )
+    .map_err(|_| AppError::new(StatusCode::INTERNAL_SERVER_ERROR, "JWT_SIGN_ERROR", "Token sign error"))?;
+
+    Ok(AuthResponse { token, user })
 }

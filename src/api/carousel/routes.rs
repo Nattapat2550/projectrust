@@ -1,12 +1,15 @@
-use axum::{routing::{get, post}, Router, Extension, middleware};
+use axum::{routing::{get, patch}, Router, middleware};
+
 use crate::config::db::DB;
-use crate::core::middleware::jwt_auth::mw_jwt_auth;
+use crate::core::middleware::jwt_auth;
+
 use super::controller;
 
-// แก้ตรงนี้: เปลี่ยน db เป็น _db
-pub fn routes(_db: DB) -> Router {
+pub fn routes(db: DB) -> Router {
     Router::new()
-        .route("/", get(controller::get_carousels))
-        .route("/", post(controller::create_carousel).layer(middleware::from_fn(mw_jwt_auth)))
-        .layer(Extension(_db)) 
+        .route("/", get(controller::list).post(controller::create))
+        .route("/:id", patch(controller::update).delete(controller::delete))
+        .route_layer(middleware::from_fn(jwt_auth::mw_require_admin))
+        .route_layer(middleware::from_fn(jwt_auth::mw_jwt_auth))
+        .with_state(db)
 }

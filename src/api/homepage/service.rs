@@ -1,31 +1,62 @@
+use sqlx::Row;
+
 use crate::config::db::DB;
 use crate::core::errors::AppError;
-use super::schema::HomepageContent;
 
-pub async fn get_content(db: &DB, section: &str) -> Result<HomepageContent, AppError> {
-    let content = sqlx::query_as::<_, HomepageContent>(
-        "SELECT section_name, content FROM homepage_content WHERE section_name = $1"
+use super::schema::{HomepageHero, HomepageHeroBody};
+
+pub async fn get_hero(db: &DB) -> Result<HomepageHero, AppError> {
+    let row = sqlx::query(
+        r#"
+        SELECT title, subtitle, cta_text, cta_link
+        FROM homepage_hero
+        ORDER BY id DESC
+        LIMIT 1
+        "#,
     )
-    .bind(section)
     .fetch_optional(&db.pool)
-    .await?
-    .ok_or(AppError::NotFound(format!("Section '{}' not found", section)))?;
+    .await?;
 
-    Ok(content)
+    if let Some(r) = row {
+        return Ok(HomepageHero {
+            title: r.get("title"),
+            subtitle: r.get("subtitle"),
+            cta_text: r.get("cta_text"),
+            cta_link: r.get("cta_link"),
+        });
+    }
+
+    Ok(HomepageHero {
+        title: "Welcome".into(),
+        subtitle: "Pure API running".into(),
+        cta_text: "Get Started".into(),
+        cta_link: "/".into(),
+    })
 }
 
-pub async fn update_content(db: &DB, section: &str, content: &str) -> Result<(), AppError> {
-    sqlx::query(
+pub async fn put_hero(db: &DB, body: HomepageHeroBody) -> Result<HomepageHero, AppError> {
+    if body.title.trim().is_empty() {
+        return Err(AppError::bad_request("title is required"));
+    }
+
+    let row = sqlx::query(
         r#"
-        INSERT INTO homepage_content (section_name, content, updated_at)
-        VALUES ($1, $2, NOW())
-        ON CONFLICT (section_name) 
-        DO UPDATE SET content = $2, updated_at = NOW()
-        "#
+        INSERT INTO homepage_hero (title, subtitle, cta_text, cta_link)
+        VALUES ($1, $2, $3, $4)
+        RETURNING title, subtitle, cta_text, cta_link
+        "#,
     )
-    .bind(section)
-    .bind(content)
-    .execute(&db.pool)
+    .bind(body.title.trim())
+    .bind(body.subtitle.trim())
+    .bind(body.cta_text.trim())
+    .bind(body.cta_link.trim())
+    .fetch_one(&db.pool)
     .await?;
-    Ok(())
+
+    Ok(HomepageHero {
+        title: row.get("title"),
+        subtitle: row.get("subtitle"),
+        cta_text: row.get("cta_text"),
+        cta_link: row.get("cta_link"),
+    })
 }

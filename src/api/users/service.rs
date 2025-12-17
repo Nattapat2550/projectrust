@@ -1,38 +1,64 @@
+use sqlx::Row;
+
 use crate::config::db::DB;
 use crate::core::errors::AppError;
-use super::schema::UserDto;
 
-pub async fn get_all_users(db: &DB) -> Result<Vec<UserDto>, AppError> {
-    let users = sqlx::query_as::<_, UserDto>(
-        "SELECT id, username, role, created_at FROM users ORDER BY id ASC"
+use super::schema::UserRow;
+
+pub async fn list_users(db: &DB) -> Result<Vec<UserRow>, AppError> {
+    let rows = sqlx::query(
+        r#"
+        SELECT id, email, name, role, provider, is_verified
+        FROM users
+        ORDER BY id DESC
+        "#,
     )
     .fetch_all(&db.pool)
     .await?;
 
-    Ok(users)
+    let mut out = Vec::with_capacity(rows.len());
+    for r in rows {
+        out.push(UserRow {
+            id: r.get("id"),
+            email: r.get("email"),
+            name: r.get("name"),
+            role: r.get("role"),
+            provider: r.get("provider"),
+            is_verified: r.get("is_verified"),
+        });
+    }
+    Ok(out)
 }
 
-pub async fn get_user_by_id(db: &DB, id: i32) -> Result<UserDto, AppError> {
-    let user = sqlx::query_as::<_, UserDto>(
-        "SELECT id, username, role, created_at FROM users WHERE id = $1"
-    )
-    .bind(id)
-    .fetch_optional(&db.pool)
-    .await?
-    .ok_or(AppError::NotFound(format!("User ID {} not found", id)))?;
-
-    Ok(user)
-}
-
-pub async fn delete_user(db: &DB, id: i32) -> Result<(), AppError> {
-    let result = sqlx::query("DELETE FROM users WHERE id = $1")
-        .bind(id)
-        .execute(&db.pool)
-        .await?;
-
-    if result.rows_affected() == 0 {
-        return Err(AppError::NotFound(format!("User ID {} not found", id)));
+pub async fn update_role(db: &DB, id: i32, role: String) -> Result<UserRow, AppError> {
+    let role = role.trim().to_string();
+    if role.is_empty() {
+        return Err(AppError::bad_request("role is required"));
     }
 
-    Ok(())
+    let row = sqlx::query(
+        r#"
+        UPDATE users
+        SET role = $2
+        WHERE id = $1
+        RETURNING id, email, name, role, provider, is_verified
+        "#,
+    )
+    .bind(id)
+    .bind(&role)
+    .fetch_optional(&db.pool)
+    .await?;
+
+    let Some(row) = row else {
+        return Err(AppError::not_found("USER_NOT_FOUND", "User not found"));
+    };
+
+    Ok(UserRow {
+        id: row.get("id"),
+        email: row.get("email"),
+        name: row.get("name"),
+        role: row.get("role"),
+        provider: row.get("provider"),
+        is_verified: row.get("is_verified"),
+    })
 }

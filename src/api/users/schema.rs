@@ -1,10 +1,16 @@
-use serde::Serialize;
-use sqlx::FromRow;
+use serde::{Deserialize, Serialize};
 
-#[derive(Serialize, FromRow)]
-pub struct UserDto {
+#[derive(Debug, Serialize, Deserialize)]
+pub struct UserRow {
     pub id: i32,
-    pub username: String,
+    pub email: String,
+    pub name: String,
     pub role: String,
-    pub created_at: Option<chrono::NaiveDateTime>, // หรือใช้ String ก็ได้แล้วแต่ DB Driver
+    pub provider: String,
+    pub is_verified: bool,
+}
+
+#[derive(Debug, Serialize, Deserialize)]
+pub struct UpdateRoleBody {
+    pub role: String,
 }

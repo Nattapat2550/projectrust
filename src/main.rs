@@ -14,7 +14,7 @@ async fn main() {
         .with_max_level(tracing::Level::INFO)
         .init();
 
-    let env = Env::new();
+    let env = Env::load();
     let db = DB::connect(&env.database_url).await;
 
     let app = api::router(db, env.clone())

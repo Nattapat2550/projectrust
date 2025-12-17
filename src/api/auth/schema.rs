@@ -1,39 +1,38 @@
 use serde::{Deserialize, Serialize};
-use validator::Validate;
 
-#[derive(Deserialize, Validate)]
-pub struct RegisterPayload {
-    #[validate(length(min = 3, message = "Username must be at least 3 chars"))]
-    pub username: String,
+#[derive(Debug, Serialize, Deserialize)]
+pub struct RegisterBody {
+    pub email: String,
+    pub password: String,
+    pub name: String,
+}
 
-    #[validate(email(message = "Invalid email format"))]
-    pub email: String, // เพิ่ม Email
-
-    #[validate(length(min = 6, message = "Password must be at least 6 chars"))]
+#[derive(Debug, Serialize, Deserialize)]
+pub struct LoginBody {
+    pub email: String,
     pub password: String,
 }
 
-#[derive(Deserialize, Validate)]
-pub struct LoginPayload {
-    // รองรับทั้ง username หรือ email ในช่องเดียว
-    #[validate(length(min = 1, message = "Username or Email is required"))]
-    pub username_or_email: String,
-    
-    #[validate(length(min = 1, message = "Password is required"))]
-    pub password: String,
+#[derive(Debug, Serialize, Deserialize)]
+pub struct GoogleOAuthBody {
+    /// id_token จาก Google (ฝั่ง client)
+    pub id_token: String,
+    /// ถ้าฝั่ง android ส่ง access_token มา (optional)
+    pub access_token: Option<String>,
 }
 
-#[derive(Serialize)]
+#[derive(Debug, Serialize, Deserialize)]
 pub struct AuthResponse {
     pub token: String,
     pub user: UserResponse,
 }
 
-#[derive(Serialize)]
+#[derive(Debug, Serialize, Deserialize)]
 pub struct UserResponse {
     pub id: i32,
-    pub username: Option<String>,
     pub email: String,
+    pub name: String,
     pub role: String,
-    pub profile_picture_url: Option<String>,
+    pub provider: String,
+    pub is_verified: bool,
 }

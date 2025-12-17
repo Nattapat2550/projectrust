@@ -1,24 +1,26 @@
 use serde::{Deserialize, Serialize};
-use validator::Validate;
-use sqlx::FromRow;
 
-#[derive(Serialize, FromRow)]
+#[derive(Debug, Serialize, Deserialize)]
 pub struct CarouselItem {
     pub id: i32,
-    pub item_index: i32,
-    pub title: Option<String>,
-    pub subtitle: Option<String>,
-    pub description: Option<String>,
-    pub image_dataurl: String, // ตรงกับ DB
+    pub image_url: String,
+    pub title: String,
+    pub subtitle: String,
+    pub link: String,
 }
 
-#[derive(Deserialize, Validate)]
-pub struct CreateCarouselPayload {
-    pub item_index: Option<i32>,
+#[derive(Debug, Serialize, Deserialize)]
+pub struct CreateCarouselBody {
+    pub image_url: String,
+    pub title: String,
+    pub subtitle: String,
+    pub link: String,
+}
+
+#[derive(Debug, Serialize, Deserialize)]
+pub struct UpdateCarouselBody {
+    pub image_url: Option<String>,
     pub title: Option<String>,
     pub subtitle: Option<String>,
-    pub description: Option<String>,
-    
-    #[validate(length(min = 1))]
-    pub image_dataurl: String, // รับเป็น Base64 Data URL
+    pub link: Option<String>,
 }
