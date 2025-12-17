@@ -8,9 +8,14 @@ pub async fn find_user(State(db): State<DB>, Json(body): Json<FindUserBody>) -> 
     Ok(Json(user))
 }
 
-// ✅ เพิ่ม Controller นี้
 pub async fn create_user_email(State(db): State<DB>, Json(body): Json<CreateUserEmailBody>) -> Result<Json<UserLite>, AppError> {
     let user = service::create_user_email(&db, body).await?;
+    Ok(Json(user))
+}
+
+// ✅ เพิ่ม Controller นี้
+pub async fn set_oauth_user(State(db): State<DB>, Json(body): Json<SetOAuthUserBody>) -> Result<Json<UserLite>, AppError> {
+    let user = service::set_oauth_user(&db, body).await?;
     Ok(Json(user))
 }
 

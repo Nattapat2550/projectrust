@@ -10,11 +10,21 @@ pub struct CreateUserEmailBody {
     pub email: String,
 }
 
+// ✅ เพิ่ม Struct นี้
+#[derive(Debug, Deserialize)]
+pub struct SetOAuthUserBody {
+    pub email: String,
+    pub provider: String,
+    pub oauth_id: String,
+    pub picture_url: Option<String>,
+    pub name: Option<String>,
+}
+
 #[derive(Debug, Serialize)]
 pub struct UserLite {
     pub id: i32,
     pub email: String,
-    pub username: Option<String>, // ✅ แก้จาก name เป็น username
+    pub username: Option<String>,
     pub role: String,
     pub provider: Option<String>,
     pub is_verified: bool,

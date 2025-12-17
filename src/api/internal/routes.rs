@@ -5,7 +5,9 @@ use super::controller;
 pub fn routes(db: DB) -> Router {
     Router::new()
         .route("/find-user", post(controller::find_user))
-        .route("/create-user-email", post(controller::create_user_email)) // ✅ เพิ่ม
+        .route("/create-user-email", post(controller::create_user_email))
+        .route("/set-oauth-user", post(controller::set_oauth_user)) // ✅ เพิ่ม Route นี้
+        
         .route("/verification-token/:email", get(controller::get_verification_token))
         .route("/reset-token/:email", get(controller::get_reset_token))
         .route("/admin/users", get(controller::list_users))
