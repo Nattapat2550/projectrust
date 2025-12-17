@@ -6,8 +6,17 @@ pub fn routes(db: DB) -> Router {
     Router::new()
         .route("/find-user", post(controller::find_user))
         .route("/create-user-email", post(controller::create_user_email))
-        .route("/set-oauth-user", post(controller::set_oauth_user)) // ✅ เพิ่ม Route นี้
+        .route("/set-oauth-user", post(controller::set_oauth_user)) // ✅
         
+        // ✅ เพิ่ม Routes ที่ Node.js เรียกหาแต่หาไม่เจอ
+        .route("/store-verification-code", post(controller::store_verification_code))
+        .route("/verify-code", post(controller::verify_code))
+        .route("/set-username-password", post(controller::set_username_password))
+        .route("/create-reset-token", post(controller::create_reset_token))
+        .route("/consume-reset-token", post(controller::consume_reset_token))
+        .route("/set-password", post(controller::set_password))
+
+        // Routes เดิม
         .route("/verification-token/:email", get(controller::get_verification_token))
         .route("/reset-token/:email", get(controller::get_reset_token))
         .route("/admin/users", get(controller::list_users))
