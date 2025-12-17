@@ -3,19 +3,21 @@ use validator::Validate;
 
 #[derive(Deserialize, Validate)]
 pub struct RegisterPayload {
-    #[validate(length(min = 3, message = "Username must be at least 3 characters"))]
+    #[validate(length(min = 3, message = "Username must be at least 3 chars"))]
     pub username: String,
-    
-    #[validate(length(min = 6, message = "Password must be at least 6 characters"))]
+
+    #[validate(email(message = "Invalid email format"))]
+    pub email: String, // เพิ่ม Email
+
+    #[validate(length(min = 6, message = "Password must be at least 6 chars"))]
     pub password: String,
-    
-    pub role: Option<String>, // ถ้าไม่ส่งมาจะเป็น "user"
 }
 
 #[derive(Deserialize, Validate)]
 pub struct LoginPayload {
-    #[validate(length(min = 1, message = "Username is required"))]
-    pub username: String,
+    // รองรับทั้ง username หรือ email ในช่องเดียว
+    #[validate(length(min = 1, message = "Username or Email is required"))]
+    pub username_or_email: String,
     
     #[validate(length(min = 1, message = "Password is required"))]
     pub password: String,
@@ -30,6 +32,8 @@ pub struct AuthResponse {
 #[derive(Serialize)]
 pub struct UserResponse {
     pub id: i32,
-    pub username: String,
+    pub username: Option<String>,
+    pub email: String,
     pub role: String,
+    pub profile_picture_url: Option<String>,
 }

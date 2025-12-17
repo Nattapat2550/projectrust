@@ -5,15 +5,20 @@ use sqlx::FromRow;
 #[derive(Serialize, FromRow)]
 pub struct CarouselItem {
     pub id: i32,
-    pub image_url: String,
-    pub link: Option<String>,
-    pub is_active: bool,
+    pub item_index: i32,
+    pub title: Option<String>,
+    pub subtitle: Option<String>,
+    pub description: Option<String>,
+    pub image_dataurl: String, // ตรงกับ DB
 }
 
 #[derive(Deserialize, Validate)]
 pub struct CreateCarouselPayload {
-    #[validate(url(message = "Invalid URL format"))]
-    pub image_url: String,
+    pub item_index: Option<i32>,
+    pub title: Option<String>,
+    pub subtitle: Option<String>,
+    pub description: Option<String>,
     
-    pub link: Option<String>,
+    #[validate(length(min = 1))]
+    pub image_dataurl: String, // รับเป็น Base64 Data URL
 }

@@ -1,1 +1,61 @@
 /target
+# =========================
+# Node / TypeScript
+# =========================
+node_modules/
+dist/
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+pnpm-debug.log*
+package-lock.json
+pnpm-lock.yaml
+yarn.lock
+
+# TypeScript build info
+*.tsbuildinfo
+
+# =========================
+# Environment / Secrets
+# =========================
+.env
+.env.*
+!.env.example
+
+# =========================
+# Logs / Coverage
+# =========================
+logs/
+*.log
+*.log.*
+coverage/
+.nyc_output/
+
+# =========================
+# Editor / IDE
+# =========================
+.vscode/
+.idea/
+*.swp
+*.swo
+
+# =========================
+# OS files
+# =========================
+.DS_Store
+Thumbs.db
+desktop.ini
+
+# =========================
+# Misc / Cache
+# =========================
+.tmp/
+.temp/
+.cache/
+
+# =========================
+# (Optional) Binary download files
+# ถ้าไม่อยาก push ไฟล์ installer ขึ้น Git
+# =========================
+# app/*.exe
+# app/*.apk
