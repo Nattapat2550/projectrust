@@ -3,11 +3,12 @@ use crate::core::errors::AppError;
 use crate::core::utils::jwt;
 
 use super::schema::*;
-use axum::http::StatusCode;
 use bcrypt::{hash, verify, DEFAULT_COST};
 use sqlx::Row;
 use std::collections::hash_map::DefaultHasher;
 use std::hash::{Hash, Hasher};
+
+// ลบ use axum::http::StatusCode; ออกแล้ว
 
 pub async fn register(db: &DB, env: &Env, body: RegisterBody) -> Result<AuthResponse, AppError> {
     let email = body.email.trim().to_lowercase();
@@ -18,24 +19,13 @@ pub async fn register(db: &DB, env: &Env, body: RegisterBody) -> Result<AuthResp
         return Err(AppError::bad_request("email, name, password are required"));
     }
 
-    let exists = sqlx::query("SELECT id FROM users WHERE LOWER(email) = $1")
-        .bind(&email)
-        .fetch_optional(&db.pool)
-        .await?;
-
-    if exists.is_some() {
-        return Err(AppError::conflict("EMAIL_EXISTS", "Email already exists"));
-    }
-
+    // 1. Hash Password
     let pw_hash = hash(password, DEFAULT_COST).map_err(|_| {
-        AppError::new(
-            StatusCode::INTERNAL_SERVER_ERROR,
-            "HASH_ERROR",
-            "Password hash error",
-        )
+        AppError::internal("Password hash error")
     })?;
 
-    let row = sqlx::query(
+    // 2. Insert into DB (Handle Duplicate Email Error here)
+    let result = sqlx::query(
         r#"
         INSERT INTO users (email, password_hash, name, role, provider, is_verified)
         VALUES ($1, $2, $3, 'user', 'local', true)
@@ -46,7 +36,22 @@ pub async fn register(db: &DB, env: &Env, body: RegisterBody) -> Result<AuthResp
     .bind(&pw_hash)
     .bind(&name)
     .fetch_one(&db.pool)
-    .await?;
+    .await;
+
+    let row = match result {
+        Ok(r) => r,
+        Err(sqlx::Error::Database(db_err)) => {
+            // เช็คว่า error มาจาก users_email_key หรือไม่
+            if let Some(constraint) = db_err.constraint() {
+                if constraint == "users_email_key" {
+                    return Err(AppError::conflict("EMAIL_EXISTS", "Email already exists"));
+                }
+            }
+            // ถ้าเป็น DB Error อื่นๆ ให้โยนกลับไปเป็น 500
+            return Err(AppError::DatabaseError(sqlx::Error::Database(db_err)));
+        }
+        Err(e) => return Err(AppError::DatabaseError(e)),
+    };
 
     let user = UserResponse {
         id: row.get("id"),
@@ -64,7 +69,7 @@ pub async fn register(db: &DB, env: &Env, body: RegisterBody) -> Result<AuthResp
         user.role.clone(),
         env,
     )
-    .map_err(|_| AppError::new(StatusCode::INTERNAL_SERVER_ERROR, "JWT_SIGN_ERROR", "Token sign error"))?;
+    .map_err(|_| AppError::internal("Token sign error"))?;
 
     Ok(AuthResponse { token, user })
 }
@@ -115,24 +120,20 @@ pub async fn login(db: &DB, env: &Env, body: LoginBody) -> Result<AuthResponse, 
         user.role.clone(),
         env,
     )
-    .map_err(|_| AppError::new(StatusCode::INTERNAL_SERVER_ERROR, "JWT_SIGN_ERROR", "Token sign error"))?;
+    .map_err(|_| AppError::internal("Token sign error"))?;
 
     Ok(AuthResponse { token, user })
 }
 
-/// NOTE:
-/// - เพื่อให้ build ผ่านแบบไม่เพิ่ม dependency และไม่พัง: เรา "ไม่ verify google token" ที่นี่
-/// - ถ้าต้องการ verify จริง (prod): ค่อยเพิ่มการเรียก Google tokeninfo/JWKS ทีหลัง
 pub async fn google_oauth(db: &DB, env: &Env, body: GoogleOAuthBody) -> Result<AuthResponse, AppError> {
     let id_token = body.id_token.trim().to_string();
     if id_token.is_empty() {
         return Err(AppError::bad_request("id_token is required"));
     }
 
-    // ✅ จุดที่แก้: ใช้ Hash::hash แทน std_hash
     let mut hasher = DefaultHasher::new();
     id_token.hash(&mut hasher);
-    let h = hasher.finish(); // u64
+    let h = hasher.finish(); 
     let email = format!("google_{:x}@example.com", h);
     let name = "Google User".to_string();
 
@@ -180,7 +181,7 @@ pub async fn google_oauth(db: &DB, env: &Env, body: GoogleOAuthBody) -> Result<A
         user.role.clone(),
         env,
     )
-    .map_err(|_| AppError::new(StatusCode::INTERNAL_SERVER_ERROR, "JWT_SIGN_ERROR", "Token sign error"))?;
+    .map_err(|_| AppError::internal("Token sign error"))?;
 
     Ok(AuthResponse { token, user })
 }
