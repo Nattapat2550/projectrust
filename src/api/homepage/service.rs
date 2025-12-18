@@ -1,57 +1,62 @@
 use sqlx::Row;
 
-use chrono::{DateTime, Utc};
-
 use crate::config::db::DB;
 use crate::core::errors::AppError;
 
-use super::schema::{HomepageContentRow};
+use super::schema::{HomepageHero, HomepageHeroBody};
 
-pub async fn get_section(db: &DB, section: &str) -> Result<HomepageContentRow, AppError> {
+pub async fn get_hero(db: &DB) -> Result<HomepageHero, AppError> {
     let row = sqlx::query(
         r#"
-        SELECT section_name, content, updated_at
-        FROM homepage_content
-        WHERE section_name = $1
+        SELECT title, subtitle, cta_text, cta_link
+        FROM homepage_hero
+        ORDER BY id DESC
+        LIMIT 1
         "#,
     )
-    .bind(section)
     .fetch_optional(&db.pool)
     .await?;
 
-    let Some(r) = row else {
-        return Err(AppError::not_found("SECTION_NOT_FOUND", "Section not found"));
-    };
+    if let Some(r) = row {
+        return Ok(HomepageHero {
+            title: r.get("title"),
+            subtitle: r.get("subtitle"),
+            cta_text: r.get("cta_text"),
+            cta_link: r.get("cta_link"),
+        });
+    }
 
-    let updated_at: DateTime<Utc> = r.get("updated_at");
-
-    Ok(HomepageContentRow {
-        section_name: r.get("section_name"),
-        content: r.get("content"),
-        updated_at: updated_at.to_rfc3339(),
+    Ok(HomepageHero {
+        title: "Welcome".into(),
+        subtitle: "Pure API running".into(),
+        cta_text: "Get Started".into(),
+        cta_link: "/".into(),
     })
 }
 
-pub async fn upsert_section(db: &DB, section: &str, content: &str) -> Result<HomepageContentRow, AppError> {
+pub async fn put_hero(db: &DB, body: HomepageHeroBody) -> Result<HomepageHero, AppError> {
+    if body.title.trim().is_empty() {
+        return Err(AppError::bad_request("title is required"));
+    }
+
     let row = sqlx::query(
         r#"
-        INSERT INTO homepage_content (section_name, content, updated_at)
-        VALUES ($1,$2,NOW())
-        ON CONFLICT (section_name)
-        DO UPDATE SET content = EXCLUDED.content, updated_at = NOW()
-        RETURNING section_name, content, updated_at
+        INSERT INTO homepage_hero (title, subtitle, cta_text, cta_link)
+        VALUES ($1, $2, $3, $4)
+        RETURNING title, subtitle, cta_text, cta_link
         "#,
     )
-    .bind(section)
-    .bind(content)
+    .bind(body.title.trim())
+    .bind(body.subtitle.trim())
+    .bind(body.cta_text.trim())
+    .bind(body.cta_link.trim())
     .fetch_one(&db.pool)
     .await?;
 
-    let updated_at: DateTime<Utc> = row.get("updated_at");
-
-    Ok(HomepageContentRow {
-        section_name: row.get("section_name"),
-        content: row.get("content"),
-        updated_at: updated_at.to_rfc3339(),
+    Ok(HomepageHero {
+        title: row.get("title"),
+        subtitle: row.get("subtitle"),
+        cta_text: row.get("cta_text"),
+        cta_link: row.get("cta_link"),
     })
 }

@@ -1,13 +1,17 @@
 use serde::{Deserialize, Serialize};
 
 #[derive(Debug, Serialize, Deserialize)]
-pub struct HomepageContentRow {
-    pub section_name: String,
-    pub content: String,
-    pub updated_at: String,
+pub struct HomepageHero {
+    pub title: String,
+    pub subtitle: String,
+    pub cta_text: String,
+    pub cta_link: String,
 }
 
 #[derive(Debug, Serialize, Deserialize)]
-pub struct UpsertHomepageBody {
-    pub content: String,
+pub struct HomepageHeroBody {
+    pub title: String,
+    pub subtitle: String,
+    pub cta_text: String,
+    pub cta_link: String,
 }
