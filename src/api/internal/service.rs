@@ -7,8 +7,8 @@ use chrono::{DateTime, Utc};
 
 // --- User Management ---
 
-pub async fn find_user(db: &DB, body: FindUserBody) -> Result<UserLite, AppError> {
-    // ✅ เพิ่ม profile_picture_url ใน SELECT
+// ✅ แก้ไข: Return Option<UserLite> แทนที่จะ Error ถ้าไม่เจอ
+pub async fn find_user(db: &DB, body: FindUserBody) -> Result<Option<UserLite>, AppError> {
     let query = if let Some(email) = &body.email {
         sqlx::query("SELECT id, email, username, role, oauth_provider AS provider, is_email_verified AS is_verified, profile_picture_url FROM users WHERE LOWER(email) = $1").bind(email.trim().to_lowercase())
     } else if let Some(id) = body.id {
@@ -20,21 +20,24 @@ pub async fn find_user(db: &DB, body: FindUserBody) -> Result<UserLite, AppError
     };
 
     let row = query.fetch_optional(&db.pool).await?;
-    let Some(row) = row else { return Err(AppError::not_found("USER_NOT_FOUND", "User not found")); };
+    
+    // ✅ ถ้าไม่เจอ Return None (เพื่อให้ Controller ส่ง data: null)
+    let Some(row) = row else { return Ok(None); };
 
-    Ok(UserLite {
+    Ok(Some(UserLite {
         id: row.get("id"), email: row.get("email"), username: row.get("username"),
         role: row.get("role"), provider: row.get("provider"), is_verified: row.get("is_verified"),
-        profile_picture_url: row.get("profile_picture_url"), // ✅ Map Field
-    })
+        profile_picture_url: row.get("profile_picture_url"),
+    }))
 }
 
 pub async fn create_user_email(db: &DB, body: CreateUserEmailBody) -> Result<UserLite, AppError> {
     let email = body.email.trim().to_lowercase();
     let default_username = email.split('@').next().unwrap_or("user").to_string();
 
+    // ✅ แก้ไข: เปลี่ยน 'provider' เป็น 'oauth_provider'
     let row = sqlx::query(
-        "INSERT INTO users (email, username, role, is_email_verified, provider) VALUES ($1, $2, 'user', FALSE, 'local') RETURNING id, email, username, role, oauth_provider AS provider, is_email_verified AS is_verified, profile_picture_url"
+        "INSERT INTO users (email, username, role, is_email_verified, oauth_provider) VALUES ($1, $2, 'user', FALSE, 'local') RETURNING id, email, username, role, oauth_provider AS provider, is_email_verified AS is_verified, profile_picture_url"
     )
     .bind(&email).bind(&default_username).fetch_one(&db.pool).await
     .map_err(|e| AppError::internal(format!("DB Error: {}", e)))?;
@@ -93,7 +96,6 @@ pub async fn set_username_password(db: &DB, body: SetUsernamePasswordBody) -> Re
     })
 }
 
-// ✅ ฟังก์ชันใหม่สำหรับ Update Profile (แก้ชื่อ, รูป)
 pub async fn update_user(db: &DB, body: UpdateUserBody) -> Result<UserLite, AppError> {
     // 1. ดึงข้อมูลเก่า
     let existing = sqlx::query("SELECT id, username, profile_picture_url FROM users WHERE id = $1")
@@ -119,7 +121,7 @@ pub async fn update_user(db: &DB, body: UpdateUserBody) -> Result<UserLite, AppE
     })
 }
 
-// --- Verification & Password Reset --- (เหมือนเดิม)
+// --- Verification & Password Reset ---
 pub async fn store_verification_code(db: &DB, body: StoreVerificationCodeBody) -> Result<(), AppError> {
     let expires_at = DateTime::parse_from_rfc3339(&body.expires_at)
         .map_err(|_| AppError::bad_request("Invalid date format"))?.with_timezone(&Utc);
