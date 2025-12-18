@@ -35,7 +35,6 @@ pub async fn register(db: &DB, env: &Env, body: RegisterBody) -> Result<AuthResp
         None
     };
 
-    // ✅ แก้ SQL: name -> username
     let result = sqlx::query_as::<_, UserRow>(
         r#"
         INSERT INTO users (username, email, password_hash, role, is_email_verified)
@@ -81,7 +80,6 @@ pub async fn register(db: &DB, env: &Env, body: RegisterBody) -> Result<AuthResp
 pub async fn login(db: &DB, env: &Env, body: LoginBody) -> Result<AuthResponse, AppError> {
     let email = body.email.trim().to_lowercase();
 
-    // ✅ แก้ SQL
     let u = sqlx::query_as::<_, UserRow>(
         r#"
         SELECT id, username, email, password_hash, role, profile_picture_url, is_email_verified
@@ -138,7 +136,7 @@ pub async fn google_oauth(db: &DB, env: &Env, body: GoogleOAuthBody) -> Result<A
     .await?;
 
     if let Some(user) = u {
-        // Update logic (ใช้ username)
+        // Update logic (Found by OAuth ID)
         u = Some(sqlx::query_as::<_, UserRow>(
             r#"
             UPDATE users SET
@@ -156,12 +154,20 @@ pub async fn google_oauth(db: &DB, env: &Env, body: GoogleOAuthBody) -> Result<A
         // 2. Try by Email or Create New
         let username = body.username.unwrap_or_else(|| email.split('@').next().unwrap_or("user").to_string());
         
+        // แก้ไข: เพิ่ม Logic การอัปเดต profile_picture_url และ username ในกรณี ON CONFLICT (เจอ Email ซ้ำ)
+        // เพื่อให้ตรงกับ pure-api: 
+        // - profile_picture_url = COALESCE($4, profile_picture_url) -> ถ้ามีรูปใหม่มา ให้ทับของเดิม
+        // - username = COALESCE(username, $5) -> ถ้าของเดิมไม่มี username ให้ใช้ของใหม่
         u = Some(sqlx::query_as::<_, UserRow>(
             r#"
             INSERT INTO users (username, email, password_hash, role, is_email_verified, oauth_provider, oauth_id, profile_picture_url)
             VALUES ($1, $2, NULL, 'user', TRUE, $3, $4, $5)
             ON CONFLICT (email) DO UPDATE SET 
-                oauth_provider = $3, oauth_id = $4, is_email_verified = TRUE 
+                oauth_provider = EXCLUDED.oauth_provider, 
+                oauth_id = EXCLUDED.oauth_id, 
+                is_email_verified = TRUE,
+                profile_picture_url = COALESCE(EXCLUDED.profile_picture_url, users.profile_picture_url),
+                username = COALESCE(users.username, EXCLUDED.username)
             RETURNING id, username, email, password_hash, role, profile_picture_url, is_email_verified
             "#
         )
