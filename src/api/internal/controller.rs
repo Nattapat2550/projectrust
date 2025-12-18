@@ -33,6 +33,12 @@ pub async fn set_username_password(State(db): State<DB>, Json(body): Json<SetUse
     Ok(Json(user))
 }
 
+// ✅ เพิ่ม Controller นี้
+pub async fn update_user(State(db): State<DB>, Json(body): Json<UpdateUserBody>) -> Result<Json<UserLite>, AppError> {
+    let user = service::update_user(&db, body).await?;
+    Ok(Json(user))
+}
+
 pub async fn create_reset_token(State(db): State<DB>, Json(body): Json<CreateResetTokenBody>) -> Result<Json<()>, AppError> {
     service::create_reset_token(&db, body).await?;
     Ok(Json(()))

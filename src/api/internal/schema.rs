@@ -1,7 +1,7 @@
 use serde::{Deserialize, Serialize};
 
 #[derive(Debug, Deserialize)]
-#[serde(rename_all = "camelCase")] // ✅ เพิ่มบรรทัดนี้เพื่อให้รับ userId, oauthId จาก Node.js ได้
+#[serde(rename_all = "camelCase")]
 pub struct FindUserBody {
     pub email: Option<String>,
     pub id: Option<i32>,
@@ -20,17 +20,17 @@ pub struct CreateUserEmailBody {
 pub struct SetOAuthUserBody {
     pub email: String,
     pub provider: String,
-    pub oauth_id: String,       // Node ส่ง oauthId -> Rust รับ oauth_id
-    pub picture_url: Option<String>, // Node ส่ง pictureUrl -> Rust รับ picture_url
+    pub oauth_id: String,
+    pub picture_url: Option<String>,
     pub name: Option<String>,
 }
 
 #[derive(Debug, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub struct StoreVerificationCodeBody {
-    pub user_id: i32,          // Node ส่ง userId -> Rust รับ user_id
+    pub user_id: i32,
     pub code: String,
-    pub expires_at: String,    // Node ส่ง expiresAt -> Rust รับ expires_at
+    pub expires_at: String,
 }
 
 #[derive(Debug, Deserialize)]
@@ -41,7 +41,7 @@ pub struct VerifyCodeBody {
 }
 
 #[derive(Debug, Serialize)]
-#[serde(rename_all = "camelCase")] // ส่งกลับไปเป็น camelCase (userId) ให้ Node.js เข้าใจ
+#[serde(rename_all = "camelCase")]
 pub struct VerifyCodeResponse {
     pub ok: bool,
     pub user_id: i32,
@@ -77,8 +77,17 @@ pub struct SetPasswordBody {
     pub new_password: String,
 }
 
+// ✅ เพิ่ม Struct นี้สำหรับ Route Update Profile
+#[derive(Debug, Deserialize)]
+#[serde(rename_all = "camelCase")] 
+pub struct UpdateUserBody {
+    pub id: i32,
+    pub username: Option<String>,
+    pub profile_picture_url: Option<String>, // รับ snake_case จาก Node.js (แต่ rename_all จะจัดการให้)
+}
+
 #[derive(Debug, Serialize)]
-#[serde(rename_all = "camelCase")] // ส่งกลับหา Node.js เป็น camelCase
+#[serde(rename_all = "camelCase")]
 pub struct UserLite {
     pub id: i32,
     pub email: String,
@@ -86,6 +95,7 @@ pub struct UserLite {
     pub role: String,
     pub provider: Option<String>,
     pub is_verified: bool,
+    pub profile_picture_url: Option<String>, // ✅ เพิ่ม Field นี้เพื่อให้รูปแสดง
 }
 
 // --- ส่วนอื่นๆ เหมือนเดิม ---
