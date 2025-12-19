@@ -245,12 +245,13 @@ pub async fn update_homepage_content(db: &DB, body: HomepageUpdateBody) -> Resul
 // --- Carousel ---
 
 pub async fn get_carousel(db: &DB) -> Result<Vec<CarouselItem>, AppError> {
-    // ใช้ image_dataurl และ description
-    let rows = sqlx::query("SELECT id, title, subtitle, description, image_dataurl FROM carousel_items ORDER BY item_index ASC, id DESC").fetch_all(&db.pool).await?;
+    // ใช้ image_dataurl และ description และ item_index
+    let rows = sqlx::query("SELECT id, item_index, title, subtitle, description, image_dataurl FROM carousel_items ORDER BY item_index ASC, id DESC").fetch_all(&db.pool).await?;
     let mut out = Vec::new();
     for r in rows { 
         out.push(CarouselItem{
             id: r.get("id"), 
+            item_index: r.get("item_index"),
             image_dataurl: r.get("image_dataurl"), 
             title: r.try_get("title").ok(), 
             subtitle: r.try_get("subtitle").ok(), 
@@ -261,38 +262,56 @@ pub async fn get_carousel(db: &DB) -> Result<Vec<CarouselItem>, AppError> {
 }
 
 pub async fn create_carousel(db: &DB, body: CreateCarouselBody) -> Result<CarouselItem, AppError> {
-    // ✅ แก้ไข: รับ title/subtitle ที่เป็น Option (ถ้าไม่มีให้เป็น null หรือ empty)
-    let row = sqlx::query("INSERT INTO carousel_items (image_dataurl, title, subtitle, description) VALUES ($1, $2, $3, '') RETURNING id")
-        .bind(&body.image_url).bind(&body.title).bind(&body.subtitle).fetch_one(&db.pool).await?;
+    // ✅ แก้ไข: ใช้ &body.description (ส่ง reference) เพื่อไม่ให้ค่าถูก move
+    let row = sqlx::query(
+        "INSERT INTO carousel_items (item_index, image_dataurl, title, subtitle, description) VALUES ($1, $2, $3, $4, $5) RETURNING id"
+    )
+    .bind(body.item_index.unwrap_or(0))
+    .bind(&body.image_url)
+    .bind(&body.title)
+    .bind(&body.subtitle)
+    .bind(&body.description) // <-- ส่ง Reference แทน
+    .fetch_one(&db.pool).await?;
     
     Ok(CarouselItem{
         id: row.get("id"), 
+        item_index: body.item_index.unwrap_or(0),
         image_dataurl: body.image_url, 
-        title: body.title, // ✅ ใส่ค่าตรงๆ (เพราะเป็น Option อยู่แล้ว)
+        title: body.title, 
         subtitle: body.subtitle, 
-        description: Some("".into())
+        description: body.description // ✅ ใช้งานได้แล้ว
     })
 }
 
 pub async fn update_carousel(db: &DB, body: UpdateCarouselBody) -> Result<CarouselItem, AppError> {
     let id = body.id;
-    let existing = sqlx::query("SELECT id, title, subtitle, description, image_dataurl FROM carousel_items WHERE id = $1").bind(id).fetch_optional(&db.pool).await?;
+    let existing = sqlx::query("SELECT id, item_index, title, subtitle, description, image_dataurl FROM carousel_items WHERE id = $1").bind(id).fetch_optional(&db.pool).await?;
     let Some(existing) = existing else { return Err(AppError::not_found("CAROUSEL_NOT_FOUND", "Not found")); };
     
+    let new_item_index: i32 = body.item_index.unwrap_or(existing.get("item_index"));
     let new_image = body.image_url.unwrap_or(existing.get("image_dataurl"));
     let new_title = body.title.or(existing.try_get("title").ok());
     let new_subtitle = body.subtitle.or(existing.try_get("subtitle").ok());
-    let desc: Option<String> = existing.try_get("description").ok();
+    let new_desc = body.description.or(existing.try_get("description").ok());
     
-    let row = sqlx::query("UPDATE carousel_items SET image_dataurl=$2, title=$3, subtitle=$4 WHERE id=$1 RETURNING id")
-        .bind(id).bind(&new_image).bind(&new_title).bind(&new_subtitle).fetch_one(&db.pool).await?;
+    let row = sqlx::query(
+        "UPDATE carousel_items SET item_index=$2, image_dataurl=$3, title=$4, subtitle=$5, description=$6 WHERE id=$1 RETURNING id"
+    )
+    .bind(id)
+    .bind(new_item_index)
+    .bind(&new_image)
+    .bind(&new_title)
+    .bind(&new_subtitle)
+    .bind(&new_desc)
+    .fetch_one(&db.pool).await?;
     
     Ok(CarouselItem{
         id: row.get("id"), 
+        item_index: new_item_index,
         image_dataurl: new_image, 
         title: new_title, 
         subtitle: new_subtitle, 
-        description: desc
+        description: new_desc
     })
 }
 
