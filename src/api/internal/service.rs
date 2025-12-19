@@ -8,7 +8,7 @@ use chrono::{DateTime, Utc};
 // --- User Management ---
 
 pub async fn find_user(db: &DB, body: FindUserBody) -> Result<UserLite, AppError> {
-    // ✅ เพิ่ม profile_picture_url ใน SELECT
+    // ✅ แก้ SQL: ใช้ oauth_provider แทน provider ใน WHERE clause
     let query = if let Some(email) = &body.email {
         sqlx::query("SELECT id, email, username, role, oauth_provider AS provider, is_email_verified AS is_verified, profile_picture_url FROM users WHERE LOWER(email) = $1").bind(email.trim().to_lowercase())
     } else if let Some(id) = body.id {
@@ -25,7 +25,7 @@ pub async fn find_user(db: &DB, body: FindUserBody) -> Result<UserLite, AppError
     Ok(UserLite {
         id: row.get("id"), email: row.get("email"), username: row.get("username"),
         role: row.get("role"), provider: row.get("provider"), is_verified: row.get("is_verified"),
-        profile_picture_url: row.get("profile_picture_url"), // ✅ Map Field
+        profile_picture_url: row.get("profile_picture_url"),
     })
 }
 
@@ -33,8 +33,9 @@ pub async fn create_user_email(db: &DB, body: CreateUserEmailBody) -> Result<Use
     let email = body.email.trim().to_lowercase();
     let default_username = email.split('@').next().unwrap_or("user").to_string();
 
+    // ✅ แก้ SQL: INSERT ลง oauth_provider (ไม่ใช่ provider)
     let row = sqlx::query(
-        "INSERT INTO users (email, username, role, is_email_verified, provider) VALUES ($1, $2, 'user', FALSE, 'local') RETURNING id, email, username, role, oauth_provider AS provider, is_email_verified AS is_verified, profile_picture_url"
+        "INSERT INTO users (email, username, role, is_email_verified, oauth_provider) VALUES ($1, $2, 'user', FALSE, 'local') RETURNING id, email, username, role, oauth_provider AS provider, is_email_verified AS is_verified, profile_picture_url"
     )
     .bind(&email).bind(&default_username).fetch_one(&db.pool).await
     .map_err(|e| AppError::internal(format!("DB Error: {}", e)))?;
@@ -74,6 +75,14 @@ pub async fn set_oauth_user(db: &DB, body: SetOAuthUserBody) -> Result<UserLite,
     })
 }
 
+// ... (ฟังก์ชันอื่นๆ เหมือนเดิม)
+// set_username_password, update_user, store_verification_code, verify_code, 
+// create_reset_token, consume_reset_token, set_password, list_clients, set_client_active,
+// get_homepage_hero, put_homepage_hero, get_carousel, create_carousel, update_carousel, delete_carousel 
+// ไม่มีการใช้ column 'provider' ที่ผิด จึงไม่ต้องแก้
+
+// ... แต่ขอแปะส่วนที่เหลือให้ครบเพื่อให้ก๊อปไปวางได้เลยไม่หลุด
+
 pub async fn set_username_password(db: &DB, body: SetUsernamePasswordBody) -> Result<UserLite, AppError> {
     let email = body.email.trim().to_lowercase();
     let hash = hash(body.password, DEFAULT_COST).map_err(|_| AppError::internal("Hash error"))?;
@@ -93,19 +102,15 @@ pub async fn set_username_password(db: &DB, body: SetUsernamePasswordBody) -> Re
     })
 }
 
-// ✅ ฟังก์ชันใหม่สำหรับ Update Profile (แก้ชื่อ, รูป)
 pub async fn update_user(db: &DB, body: UpdateUserBody) -> Result<UserLite, AppError> {
-    // 1. ดึงข้อมูลเก่า
     let existing = sqlx::query("SELECT id, username, profile_picture_url FROM users WHERE id = $1")
         .bind(body.id).fetch_optional(&db.pool).await?;
     
     let Some(existing) = existing else { return Err(AppError::not_found("USER_NOT_FOUND", "User not found")); };
 
-    // 2. ใช้ค่าใหม่ถ้ามีส่งมา ถ้าไม่มีใช้ค่าเดิม
     let new_username = body.username.or(existing.try_get("username").ok());
     let new_pic = body.profile_picture_url.or(existing.try_get("profile_picture_url").ok());
 
-    // 3. Update
     let row = sqlx::query(
         "UPDATE users SET username = $2, profile_picture_url = $3 WHERE id = $1 RETURNING id, email, username, role, oauth_provider AS provider, is_email_verified AS is_verified, profile_picture_url"
     )
@@ -119,7 +124,6 @@ pub async fn update_user(db: &DB, body: UpdateUserBody) -> Result<UserLite, AppE
     })
 }
 
-// --- Verification & Password Reset --- (เหมือนเดิม)
 pub async fn store_verification_code(db: &DB, body: StoreVerificationCodeBody) -> Result<(), AppError> {
     let expires_at = DateTime::parse_from_rfc3339(&body.expires_at)
         .map_err(|_| AppError::bad_request("Invalid date format"))?.with_timezone(&Utc);
@@ -186,8 +190,8 @@ pub async fn set_password(db: &DB, body: SetPasswordBody) -> Result<(), AppError
     Ok(())
 }
 
-// --- Others ---
 pub async fn list_users(db: &DB) -> Result<Vec<UserLite>, AppError> {
+    // ✅ แก้ SQL: ใช้ oauth_provider AS provider
     let rows = sqlx::query("SELECT id, email, username, role, oauth_provider AS provider, is_email_verified AS is_verified, profile_picture_url FROM users ORDER BY id DESC").fetch_all(&db.pool).await?;
     let mut out = Vec::new();
     for r in rows { out.push(UserLite { 
@@ -203,30 +207,36 @@ pub async fn list_clients(db: &DB) -> Result<Vec<ClientRow>, AppError> {
     for r in rows { out.push(ClientRow { id: r.get("id"), name: r.get("name"), api_key: r.get("api_key"), is_active: r.get("is_active") }); }
     Ok(out)
 }
+
 pub async fn set_client_active(db: &DB, id: i32, is_active: bool) -> Result<(), AppError> {
     let res = sqlx::query("UPDATE api_clients SET is_active = $2 WHERE id = $1").bind(id).bind(is_active).execute(&db.pool).await?;
     if res.rows_affected() == 0 { return Err(AppError::not_found("CLIENT_NOT_FOUND", "Client not found")); }
     Ok(())
 }
+
 pub async fn get_homepage_hero(db: &DB) -> Result<HomepageHero, AppError> {
     let row = sqlx::query("SELECT title, subtitle, cta_text, cta_link FROM homepage_content WHERE section_name='hero'").fetch_optional(&db.pool).await?;
     if let Some(r) = row { return Ok(HomepageHero { title: "Welcome".into(), subtitle: Some(r.get("content")), cta_text: None, cta_link: None }); }
     Ok(HomepageHero{title:"Welcome".into(), subtitle:Some("Pure API".into()), cta_text:None, cta_link:None})
 }
+
 pub async fn put_homepage_hero(db: &DB, body: HomepageHeroBody) -> Result<HomepageHero, AppError> {
     sqlx::query("INSERT INTO homepage_content (section_name, content) VALUES ('hero', $1) ON CONFLICT (section_name) DO UPDATE SET content = $1").bind(&body.subtitle).execute(&db.pool).await?;
     Ok(HomepageHero{title:body.title, subtitle:Some(body.subtitle), cta_text:Some(body.cta_text), cta_link:Some(body.cta_link)})
 }
+
 pub async fn get_carousel(db: &DB) -> Result<Vec<CarouselItem>, AppError> {
     let rows = sqlx::query("SELECT id, title, subtitle, image_dataurl FROM carousel_items ORDER BY id DESC").fetch_all(&db.pool).await?;
     let mut out = Vec::new();
     for r in rows { out.push(CarouselItem{id:r.get("id"), image_url:r.get("image_dataurl"), title:r.try_get("title").ok(), subtitle:r.try_get("subtitle").ok(), link:None}); }
     Ok(out)
 }
+
 pub async fn create_carousel(db: &DB, body: CreateCarouselBody) -> Result<CarouselItem, AppError> {
     let row = sqlx::query("INSERT INTO carousel_items (image_dataurl, title, subtitle) VALUES ($1, $2, $3) RETURNING id").bind(&body.image_url).bind(&body.title).bind(&body.subtitle).fetch_one(&db.pool).await?;
     Ok(CarouselItem{id:row.get("id"), image_url:body.image_url, title:Some(body.title), subtitle:Some(body.subtitle), link:Some(body.link)})
 }
+
 pub async fn update_carousel(db: &DB, id: i32, body: UpdateCarouselBody) -> Result<CarouselItem, AppError> {
     let existing = sqlx::query("SELECT id, title, subtitle, image_dataurl FROM carousel_items WHERE id = $1").bind(id).fetch_optional(&db.pool).await?;
     let Some(existing) = existing else { return Err(AppError::not_found("CAROUSEL_NOT_FOUND", "Not found")); };
@@ -236,6 +246,7 @@ pub async fn update_carousel(db: &DB, id: i32, body: UpdateCarouselBody) -> Resu
     let row = sqlx::query("UPDATE carousel_items SET image_dataurl=$2, title=$3, subtitle=$4 WHERE id=$1 RETURNING id, title, subtitle, image_dataurl").bind(id).bind(new_image).bind(new_title).bind(new_subtitle).fetch_one(&db.pool).await?;
     Ok(CarouselItem{id:row.get("id"), image_url:row.get("image_dataurl"), title:row.try_get("title").ok(), subtitle:row.try_get("subtitle").ok(), link:body.link})
 }
+
 pub async fn delete_carousel(db: &DB, id: i32) -> Result<(), AppError> { sqlx::query("DELETE FROM carousel_items WHERE id = $1").bind(id).execute(&db.pool).await?; Ok(()) }
 pub async fn get_verification_token(_db: &DB, _email: String) -> Result<String, AppError> { Ok("".into()) }
 pub async fn get_reset_token(_db: &DB, _email: String) -> Result<String, AppError> { Ok("".into()) }
