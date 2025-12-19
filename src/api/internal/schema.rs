@@ -138,11 +138,15 @@ pub struct CarouselItem {
 #[derive(Debug, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub struct CreateCarouselBody {
-    #[serde(alias = "image_url")] 
+    // ✅ เพิ่ม alias ให้รองรับ image_dataurl และ imageDataurl
+    #[serde(alias = "image_url", alias = "image_dataurl", alias = "imageDataurl")] 
     pub image_url: String, 
-    pub title: String,
-    pub subtitle: String,
-    #[allow(dead_code)] // ✅ เพิ่มบรรทัดนี้เพื่อปิด Warning
+    
+    // ✅ ปรับเป็น Option เผื่อ Frontend ไม่ส่งมา
+    pub title: Option<String>,
+    pub subtitle: Option<String>,
+    
+    #[allow(dead_code)]
     pub link: Option<String>, 
 }
 
@@ -150,10 +154,12 @@ pub struct CreateCarouselBody {
 #[serde(rename_all = "camelCase")]
 pub struct UpdateCarouselBody {
     pub id: i32,
+    // ✅ เพิ่ม alias ให้รองรับหลายชื่อ
+    #[serde(alias = "image_url", alias = "image_dataurl", alias = "imageDataurl")]
     pub image_url: Option<String>,
     pub title: Option<String>,
     pub subtitle: Option<String>,
-    #[allow(dead_code)] // ✅ เพิ่มบรรทัดนี้เพื่อปิด Warning
+    #[allow(dead_code)]
     pub link: Option<String>,
 }
 

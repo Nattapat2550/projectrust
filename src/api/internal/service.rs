@@ -8,7 +8,6 @@ use chrono::{DateTime, Utc};
 // --- User Management ---
 
 pub async fn find_user(db: &DB, body: FindUserBody) -> Result<UserLite, AppError> {
-    // ✅ แก้ไข: เขียน SQL แยกแต่ละ case เพื่อไม่ให้ติดเรื่อง lifetime ของ borrow checker
     let row = if let Some(email) = &body.email {
         sqlx::query("SELECT id, email, username, role, password_hash, oauth_provider, is_email_verified, profile_picture_url FROM users WHERE LOWER(email) = $1")
             .bind(email.trim().to_lowercase())
@@ -262,14 +261,15 @@ pub async fn get_carousel(db: &DB) -> Result<Vec<CarouselItem>, AppError> {
 }
 
 pub async fn create_carousel(db: &DB, body: CreateCarouselBody) -> Result<CarouselItem, AppError> {
+    // ✅ แก้ไข: รับ title/subtitle ที่เป็น Option (ถ้าไม่มีให้เป็น null หรือ empty)
     let row = sqlx::query("INSERT INTO carousel_items (image_dataurl, title, subtitle, description) VALUES ($1, $2, $3, '') RETURNING id")
         .bind(&body.image_url).bind(&body.title).bind(&body.subtitle).fetch_one(&db.pool).await?;
     
     Ok(CarouselItem{
         id: row.get("id"), 
         image_dataurl: body.image_url, 
-        title: Some(body.title), 
-        subtitle: Some(body.subtitle), 
+        title: body.title, // ✅ ใส่ค่าตรงๆ (เพราะเป็น Option อยู่แล้ว)
+        subtitle: body.subtitle, 
         description: Some("".into())
     })
 }
