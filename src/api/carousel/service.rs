@@ -4,12 +4,12 @@ use crate::core::errors::AppError;
 use super::schema::{CarouselItem, CreateCarouselBody, UpdateCarouselBody};
 
 pub async fn list(db: &DB) -> Result<Vec<CarouselItem>, AppError> {
-    // ✅ แก้ SQL: ใช้ image_dataurl และ description ตาม db.sql
+    // ✅ เพิ่ม item_index, created_at, updated_at และเรียงตาม item_index
     let rows = sqlx::query(
         r#"
-        SELECT id, image_dataurl, title, subtitle, description
+        SELECT id, item_index, image_dataurl, title, subtitle, description, created_at, updated_at
         FROM carousel_items
-        ORDER BY item_index ASC, id DESC
+        ORDER BY item_index ASC, id ASC
         "#
     )
     .fetch_all(&db.pool)
@@ -19,29 +19,33 @@ pub async fn list(db: &DB) -> Result<Vec<CarouselItem>, AppError> {
     for r in rows {
         out.push(CarouselItem {
             id: r.get("id"),
-            image_url: r.get("image_dataurl"), // Map DB column -> Struct field
+            item_index: r.get("item_index"),          // ✅ Map field
+            image_dataurl: r.get("image_dataurl"),    // ✅ Map field
             title: r.get("title"),
             subtitle: r.get("subtitle"),
             description: r.get("description"),
+            created_at: r.get("created_at"),
+            updated_at: r.get("updated_at"),
         });
     }
     Ok(out)
 }
 
 pub async fn create(db: &DB, body: CreateCarouselBody) -> Result<CarouselItem, AppError> {
-    if body.image_url.trim().is_empty() {
-        return Err(AppError::bad_request("image_url is required"));
+    if body.image_dataurl.trim().is_empty() {
+        return Err(AppError::bad_request("image_dataurl is required"));
     }
 
-    // ✅ แก้ SQL: Insert ลง image_dataurl
+    // ✅ เพิ่ม item_index และ timestamps
     let row = sqlx::query(
         r#"
-        INSERT INTO carousel_items (image_dataurl, title, subtitle, description)
-        VALUES ($1, $2, $3, $4)
-        RETURNING id, image_dataurl, title, subtitle, description
+        INSERT INTO carousel_items (item_index, image_dataurl, title, subtitle, description, created_at, updated_at)
+        VALUES ($1, $2, $3, $4, $5, NOW(), NOW())
+        RETURNING id, item_index, image_dataurl, title, subtitle, description, created_at, updated_at
         "#
     )
-    .bind(body.image_url.trim())
+    .bind(body.item_index.unwrap_or(0)) // Default item_index = 0
+    .bind(body.image_dataurl.trim())
     .bind(body.title)
     .bind(body.subtitle)
     .bind(body.description)
@@ -50,16 +54,20 @@ pub async fn create(db: &DB, body: CreateCarouselBody) -> Result<CarouselItem, A
 
     Ok(CarouselItem {
         id: row.get("id"),
-        image_url: row.get("image_dataurl"),
+        item_index: row.get("item_index"),
+        image_dataurl: row.get("image_dataurl"),
         title: row.get("title"),
         subtitle: row.get("subtitle"),
         description: row.get("description"),
+        created_at: row.get("created_at"),
+        updated_at: row.get("updated_at"),
     })
 }
 
 pub async fn update(db: &DB, id: i32, body: UpdateCarouselBody) -> Result<CarouselItem, AppError> {
+    // เช็คของเดิมก่อน
     let existing = sqlx::query(
-        "SELECT id, image_dataurl, title, subtitle, description FROM carousel_items WHERE id = $1"
+        "SELECT id, item_index, image_dataurl, title, subtitle, description FROM carousel_items WHERE id = $1"
     )
     .bind(id)
     .fetch_optional(&db.pool)
@@ -69,26 +77,34 @@ pub async fn update(db: &DB, id: i32, body: UpdateCarouselBody) -> Result<Carous
         return Err(AppError::not_found("CAROUSEL_NOT_FOUND", "Item not found"));
     };
 
-    let mut image_url: String = existing.get("image_dataurl");
+    // Prepare ค่าเดิมถ้าไม่มีการส่งมาใหม่
+    let mut item_index: i32 = existing.get("item_index");
+    let mut image_dataurl: String = existing.get("image_dataurl");
     let mut title: Option<String> = existing.get("title");
     let mut subtitle: Option<String> = existing.get("subtitle");
     let mut description: Option<String> = existing.get("description");
 
-    if let Some(v) = body.image_url { if !v.trim().is_empty() { image_url = v.trim().to_string(); } }
+    // อัปเดตค่าถ้ามีการส่งมา
+    if let Some(v) = body.item_index { item_index = v; }
+    if let Some(v) = body.image_dataurl { 
+        if !v.trim().is_empty() { image_dataurl = v.trim().to_string(); } 
+    }
     if body.title.is_some() { title = body.title; }
     if body.subtitle.is_some() { subtitle = body.subtitle; }
     if body.description.is_some() { description = body.description; }
 
+    // ✅ อัปเดตลง DB พร้อม updated_at
     let row = sqlx::query(
         r#"
         UPDATE carousel_items
-        SET image_dataurl=$2, title=$3, subtitle=$4, description=$5, updated_at=NOW()
+        SET item_index=$2, image_dataurl=$3, title=$4, subtitle=$5, description=$6, updated_at=NOW()
         WHERE id=$1
-        RETURNING id, image_dataurl, title, subtitle, description
+        RETURNING id, item_index, image_dataurl, title, subtitle, description, created_at, updated_at
         "#
     )
     .bind(id)
-    .bind(image_url)
+    .bind(item_index)
+    .bind(image_dataurl)
     .bind(title)
     .bind(subtitle)
     .bind(description)
@@ -97,10 +113,13 @@ pub async fn update(db: &DB, id: i32, body: UpdateCarouselBody) -> Result<Carous
 
     Ok(CarouselItem {
         id: row.get("id"),
-        image_url: row.get("image_dataurl"),
+        item_index: row.get("item_index"),
+        image_dataurl: row.get("image_dataurl"),
         title: row.get("title"),
         subtitle: row.get("subtitle"),
         description: row.get("description"),
+        created_at: row.get("created_at"),
+        updated_at: row.get("updated_at"),
     })
 }
 
