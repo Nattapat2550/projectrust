@@ -36,7 +36,10 @@ pub struct SetUsernamePasswordBody { pub email: String, pub username: String, pu
 #[derive(Debug, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub struct UpdateUserBody {
-    pub id: i32, pub username: Option<String>, pub profile_picture_url: Option<String>,
+    pub id: i32, 
+    pub username: Option<String>,
+    #[serde(alias = "profile_picture_url")]
+    pub profile_picture_url: Option<String>,
 }
 #[derive(Debug, Deserialize)]
 #[serde(rename_all = "camelCase")]
