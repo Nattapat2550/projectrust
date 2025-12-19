@@ -1,37 +1,35 @@
 use sqlx::Row;
-
+use serde_json::json;
 use crate::config::db::DB;
 use crate::core::errors::AppError;
-
 use super::schema::{HomepageHero, HomepageHeroBody};
 
+// ✅ Helper constant สำหรับ Default Hero
+fn default_hero() -> HomepageHero {
+    HomepageHero {
+        title: "Welcome".into(),
+        subtitle: "Pure API running".into(),
+        cta_text: "Get Started".into(),
+        cta_link: "/".into(),
+    }
+}
+
 pub async fn get_hero(db: &DB) -> Result<HomepageHero, AppError> {
+    // ✅ แก้ SQL: ดึง content จาก homepage_content where section_name = 'hero'
     let row = sqlx::query(
-        r#"
-        SELECT title, subtitle, cta_text, cta_link
-        FROM homepage_hero
-        ORDER BY id DESC
-        LIMIT 1
-        "#,
+        "SELECT content FROM homepage_content WHERE section_name = 'hero'"
     )
     .fetch_optional(&db.pool)
     .await?;
 
     if let Some(r) = row {
-        return Ok(HomepageHero {
-            title: r.get("title"),
-            subtitle: r.get("subtitle"),
-            cta_text: r.get("cta_text"),
-            cta_link: r.get("cta_link"),
-        });
+        let content_str: String = r.get("content");
+        // Parse JSON String -> Struct
+        let hero: HomepageHero = serde_json::from_str(&content_str).unwrap_or(default_hero());
+        return Ok(hero);
     }
 
-    Ok(HomepageHero {
-        title: "Welcome".into(),
-        subtitle: "Pure API running".into(),
-        cta_text: "Get Started".into(),
-        cta_link: "/".into(),
-    })
+    Ok(default_hero())
 }
 
 pub async fn put_hero(db: &DB, body: HomepageHeroBody) -> Result<HomepageHero, AppError> {
@@ -39,24 +37,31 @@ pub async fn put_hero(db: &DB, body: HomepageHeroBody) -> Result<HomepageHero, A
         return Err(AppError::bad_request("title is required"));
     }
 
-    let row = sqlx::query(
+    // Convert Struct -> JSON String
+    let content_json = json!({
+        "title": body.title.trim(),
+        "subtitle": body.subtitle.trim(),
+        "cta_text": body.cta_text.trim(),
+        "cta_link": body.cta_link.trim(),
+    }).to_string();
+
+    // ✅ แก้ SQL: Upsert ลง homepage_content
+    sqlx::query(
         r#"
-        INSERT INTO homepage_hero (title, subtitle, cta_text, cta_link)
-        VALUES ($1, $2, $3, $4)
-        RETURNING title, subtitle, cta_text, cta_link
-        "#,
+        INSERT INTO homepage_content (section_name, content, updated_at)
+        VALUES ('hero', $1, NOW())
+        ON CONFLICT (section_name) 
+        DO UPDATE SET content = EXCLUDED.content, updated_at = NOW()
+        "#
     )
-    .bind(body.title.trim())
-    .bind(body.subtitle.trim())
-    .bind(body.cta_text.trim())
-    .bind(body.cta_link.trim())
-    .fetch_one(&db.pool)
+    .bind(&content_json)
+    .execute(&db.pool)
     .await?;
 
     Ok(HomepageHero {
-        title: row.get("title"),
-        subtitle: row.get("subtitle"),
-        cta_text: row.get("cta_text"),
-        cta_link: row.get("cta_link"),
+        title: body.title,
+        subtitle: body.subtitle,
+        cta_text: body.cta_text,
+        cta_link: body.cta_link,
     })
 }

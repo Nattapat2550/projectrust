@@ -1,18 +1,27 @@
-use axum::{extract::{Path, State}, Json};
-use crate::config::db::DB;
-use crate::core::errors::AppError;
-use super::{service, schema::{UserRow, UpdateRoleBody}}; // ✅ Import UpdateRoleBody
+use axum::{
+    extract::{Path, State},
+    Json,
+};
+use serde_json::json;
 
-pub async fn list_users(State(db): State<DB>) -> Result<Json<Vec<UserRow>>, AppError> {
+use crate::core::errors::AppError;
+use super::schema::UpdateRoleBody; // เรียกใช้ Struct ที่เพิ่งสร้าง
+use super::service;
+
+// GET /api/users
+pub async fn list_users(
+    State((db, _)): State<(crate::config::db::DB, crate::config::env::Env)>,
+) -> Result<Json<serde_json::Value>, AppError> {
     let users = service::list_users(&db).await?;
-    Ok(Json(users))
+    Ok(Json(json!({ "ok": true, "data": users })))
 }
 
+// PATCH /api/users/:id/role
 pub async fn update_role(
-    State(db): State<DB>,
+    State((db, _)): State<(crate::config::db::DB, crate::config::env::Env)>,
     Path(id): Path<i32>,
-    Json(body): Json<UpdateRoleBody>, // ✅ ใช้ Struct นี้
-) -> Result<Json<UserRow>, AppError> {
+    Json(body): Json<UpdateRoleBody>,
+) -> Result<Json<serde_json::Value>, AppError> {
     let user = service::update_role(&db, id, body.role).await?;
-    Ok(Json(user))
+    Ok(Json(json!({ "ok": true, "data": user })))
 }

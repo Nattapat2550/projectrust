@@ -8,7 +8,7 @@ use crate::config::env::{Env, ENV};
 pub struct Claims {
     pub sub: i32,
     pub email: String,
-    pub name: String,
+    // pub name: String, // ❌ ลบออก (pure-api ไม่มี field นี้ใน token)
     pub role: String,
     pub exp: usize,
     pub iat: usize,
@@ -21,36 +21,22 @@ fn now_ts() -> usize {
         .as_secs() as usize
 }
 
-/// รองรับ: "7d", "24h", "3600s", "15m", หรือ "604800"
 fn exp_from_env(env: &Env) -> usize {
     let s = env.jwt_expires_in.trim();
-    if s.is_empty() {
-        return 7 * 24 * 60 * 60;
-    }
-
+    if s.is_empty() { return 7 * 24 * 60 * 60; }
     let last = s.chars().last().unwrap_or(' ');
-    if last.is_ascii_digit() {
-        // เป็นเลขล้วน
-        return s.parse::<usize>().unwrap_or(7 * 24 * 60 * 60);
-    }
-
-    // ตัวท้ายเป็น unit
+    if last.is_ascii_digit() { return s.parse::<usize>().unwrap_or(7 * 24 * 60 * 60); }
     let num_part = &s[..s.len().saturating_sub(1)];
     let n = num_part.parse::<usize>().unwrap_or(7);
-
     match last {
-        's' => n,
-        'm' => n * 60,
-        'h' => n * 60 * 60,
-        'd' => n * 24 * 60 * 60,
-        _ => 7 * 24 * 60 * 60,
+        's' => n, 'm' => n * 60, 'h' => n * 60 * 60, 'd' => n * 24 * 60 * 60, _ => 7 * 24 * 60 * 60,
     }
 }
 
 pub fn sign(
     user_id: i32,
     email: String,
-    name: String,
+    // name: String, // ❌ ลบออก
     role: String,
     env: &Env,
 ) -> Result<String, jsonwebtoken::errors::Error> {
@@ -60,7 +46,7 @@ pub fn sign(
     let claims = Claims {
         sub: user_id,
         email,
-        name,
+        // name, // ❌ ลบออก
         role,
         exp,
         iat,
@@ -74,8 +60,7 @@ pub fn sign(
 }
 
 pub fn verify(token: &str) -> Result<Claims, jsonwebtoken::errors::Error> {
-    let env = ENV.get().expect("ENV not initialized (call Env::load first)");
-
+    let env = ENV.get().expect("ENV not initialized");
     let mut validation = Validation::new(Algorithm::HS256);
     validation.validate_exp = true;
 

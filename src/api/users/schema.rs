@@ -10,7 +10,7 @@ pub struct UserRow {
     pub is_verified: bool,
 }
 
-// ✅ เพิ่ม Struct นี้
+// ✅ ใช้สำหรับรับค่า JSON ตอนเปลี่ยน Role ในหน้า Admin
 #[derive(Debug, Deserialize)]
 pub struct UpdateRoleBody {
     pub role: String,

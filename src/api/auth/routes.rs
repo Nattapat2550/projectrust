@@ -7,9 +7,21 @@ use super::controller;
 
 pub fn routes(db: DB, env: Env) -> Router {
     Router::new()
+        // Auth Flow
         .route("/register", post(controller::register))
+        .route("/verify-code", post(controller::verify_code))
+        .route("/complete-profile", post(controller::complete_profile))
         .route("/login", post(controller::login))
+        .route("/logout", post(controller::logout))
+        
+        // Password Reset
+        .route("/forgot-password", post(controller::forgot_password))
+        .route("/reset-password", post(controller::reset_password))
+        
+        // OAuth
         .route("/oauth/google", post(controller::google_oauth))
+        
+        // User Info
         .route(
             "/me",
             get(controller::me)

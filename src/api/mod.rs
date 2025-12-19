@@ -2,11 +2,10 @@ use axum::{
     extract::DefaultBodyLimit,
     http::{HeaderValue, Method, StatusCode, header},
     middleware,
-    // response::IntoResponse,  <-- ลบตัวนี้ออก
     Extension, Json, Router,
 };
 use serde_json::json;
-use tower::ServiceBuilder; // <-- ลบ service_fn ออก เหลือแค่ ServiceBuilder
+use tower::ServiceBuilder;
 use tower_http::{
     compression::CompressionLayer,
     cors::CorsLayer,
@@ -30,7 +29,7 @@ pub mod users;
 pub mod download;
 
 pub fn router(db: DB, env: Env) -> Router {
-    // --- 1. Security Headers (แทน Helmet) ---
+    // --- 1. Security Headers ---
     let security_headers = ServiceBuilder::new()
         .layer(SetResponseHeaderLayer::overriding(
             header::X_CONTENT_TYPE_OPTIONS,
@@ -83,9 +82,9 @@ pub fn router(db: DB, env: Env) -> Router {
             config: governor_conf.clone(),
         });
 
-    // Protected User Routes
-    let users_routes = users::routes::routes(db.clone())
-        .route_layer(middleware::from_fn(jwt_auth::mw_jwt_auth));
+    // Protected User Routes (Admin)
+    // ✅ แก้ไข: ส่ง env.clone() ไปด้วย และไม่ต้องใส่ .route_layer ซ้ำ เพราะใน users::routes ใส่ไว้แล้ว
+    let users_routes = users::routes::routes(db.clone(), env.clone());
 
     // Protected Admin Routes
     let admin_routes = admin::routes::routes(db.clone())
