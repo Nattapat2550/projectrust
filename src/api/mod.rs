@@ -2,10 +2,11 @@ use axum::{
     extract::DefaultBodyLimit,
     http::{HeaderValue, Method, StatusCode, header},
     middleware,
+    // response::IntoResponse,  <-- ลบตัวนี้ออก
     Extension, Json, Router,
 };
 use serde_json::json;
-use tower::ServiceBuilder;
+use tower::ServiceBuilder; // <-- ลบ service_fn ออก เหลือแค่ ServiceBuilder
 use tower_http::{
     compression::CompressionLayer,
     cors::CorsLayer,
@@ -29,7 +30,7 @@ pub mod users;
 pub mod download;
 
 pub fn router(db: DB, env: Env) -> Router {
-    // --- 1. Security Headers (แทน Helmet ของ Express) ---
+    // --- 1. Security Headers (แทน Helmet) ---
     let security_headers = ServiceBuilder::new()
         .layer(SetResponseHeaderLayer::overriding(
             header::X_CONTENT_TYPE_OPTIONS,
@@ -49,10 +50,8 @@ pub fn router(db: DB, env: Env) -> Router {
         ));
 
     // --- 2. CORS Setup ---
-    // pure-api: ถ้า ALLOWED_ORIGINS ว่าง จะ block request จาก browser (return false)
-    // แต่ยอมให้ server-to-server (ไม่มี Origin header) ผ่านได้ ซึ่ง CorsLayer::new() ทำงานแบบนั้น (default block origin)
     let cors_layer = if env.allowed_origins.is_empty() {
-        CorsLayer::new()
+        CorsLayer::permissive()
     } else {
         let origins: Vec<HeaderValue> = env
             .allowed_origins
@@ -133,8 +132,7 @@ pub fn router(db: DB, env: Env) -> Router {
         .nest("/api", api_routes)
         .fallback(fallback_handler)
         // Global Layers
-        // แก้ไข: เพิ่ม Body Limit เป็น 10MB เพื่อให้ตรงกับ pure-api (app.use(express.json({ limit: "10mb" })))
-        .layer(DefaultBodyLimit::max(10 * 1024 * 1024)) 
+        .layer(DefaultBodyLimit::max(2 * 1024 * 1024))
         .layer(cors_layer)
         .layer(security_headers)
         .layer(CompressionLayer::new())
