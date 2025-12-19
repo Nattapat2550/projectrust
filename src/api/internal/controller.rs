@@ -3,6 +3,9 @@ use crate::config::db::DB;
 use crate::core::errors::AppError;
 use super::{service, schema::*};
 
+// ... (Controller User, Auth, Verification เหมือนเดิม ไม่ต้องแก้)
+// แต่ขอ Copy ส่วนที่เปลี่ยนไปให้ครับ
+
 // --- User & Auth ---
 pub async fn find_user(State(db): State<DB>, Json(body): Json<FindUserBody>) -> Result<Json<UserLite>, AppError> {
     let user = service::find_user(&db, body).await?;
@@ -44,6 +47,8 @@ pub async fn set_password(State(db): State<DB>, Json(body): Json<SetPasswordBody
     service::set_password(&db, body).await?;
     Ok(Json(()))
 }
+
+// ... (Legacy Direct Support)
 pub async fn get_verification_token(State(db): State<DB>, Path(email): Path<String>) -> Result<Json<String>, AppError> {
     let token = service::get_verification_token(&db, email).await?;
     Ok(Json(token))
@@ -66,17 +71,17 @@ pub async fn set_client_active(State(db): State<DB>, Path(id): Path<i32>, Json(b
     Ok(Json(()))
 }
 
-// --- Homepage (Matched to Node.js) ---
-pub async fn get_homepage_hero(State(db): State<DB>) -> Result<Json<HomepageHero>, AppError> {
-    let hero = service::get_homepage_hero(&db).await?;
-    Ok(Json(hero))
+// ✅ แก้ไข: Homepage ส่งกลับเป็น List
+pub async fn get_homepage_content(State(db): State<DB>) -> Result<Json<Vec<HomepageContentRow>>, AppError> {
+    let content = service::get_homepage_content(&db).await?;
+    Ok(Json(content))
 }
-pub async fn put_homepage_hero(State(db): State<DB>, Json(body): Json<HomepageHeroBody>) -> Result<Json<HomepageHero>, AppError> {
-    let hero = service::put_homepage_hero(&db, body).await?;
-    Ok(Json(hero))
+pub async fn update_homepage_content(State(db): State<DB>, Json(body): Json<HomepageUpdateBody>) -> Result<Json<HomepageContentRow>, AppError> {
+    let content = service::update_homepage_content(&db, body).await?;
+    Ok(Json(content))
 }
 
-// --- Carousel (Matched to Node.js) ---
+// --- Carousel ---
 pub async fn get_carousel(State(db): State<DB>) -> Result<Json<Vec<CarouselItem>>, AppError> {
     let items = service::get_carousel(&db).await?;
     Ok(Json(items))
@@ -85,12 +90,10 @@ pub async fn create_carousel(State(db): State<DB>, Json(body): Json<CreateCarous
     let item = service::create_carousel(&db, body).await?;
     Ok(Json(item))
 }
-// ✅ รับ ID จาก Body แทน Path
 pub async fn update_carousel(State(db): State<DB>, Json(body): Json<UpdateCarouselBody>) -> Result<Json<CarouselItem>, AppError> {
     let item = service::update_carousel(&db, body).await?;
     Ok(Json(item))
 }
-// ✅ รับ ID จาก Body แทน Path
 pub async fn delete_carousel(State(db): State<DB>, Json(body): Json<DeleteCarouselBody>) -> Result<Json<()>, AppError> {
     service::delete_carousel(&db, body).await?;
     Ok(Json(()))

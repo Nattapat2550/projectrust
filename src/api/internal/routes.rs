@@ -22,14 +22,15 @@ pub fn routes(db: DB) -> Router {
         .route("/admin/clients/:id/active", put(controller::set_client_active))
         
         // --- Homepage (Matching backend/routes/homepage.js) ---
-        .route("/homepage/list", get(controller::get_homepage_hero)) // Node.js calls /list
-        .route("/homepage/update", post(controller::put_homepage_hero)) // Node.js calls /update (POST)
+        // ✅ แก้ไข: ใช้ชื่อฟังก์ชันใหม่ (get_homepage_content, update_homepage_content)
+        .route("/homepage/list", get(controller::get_homepage_content)) 
+        .route("/homepage/update", post(controller::update_homepage_content)) 
 
         // --- Carousel (Matching backend/routes/carousel.js & models/carousel.js) ---
-        .route("/carousel/list", get(controller::get_carousel))   // Node.js calls /list
+        .route("/carousel/list", get(controller::get_carousel))
         .route("/carousel/create", post(controller::create_carousel))
-        .route("/carousel/update", post(controller::update_carousel)) // Node.js sends POST with ID in body
-        .route("/carousel/delete", post(controller::delete_carousel)) // Node.js sends POST with ID in body
+        .route("/carousel/update", post(controller::update_carousel))
+        .route("/carousel/delete", post(controller::delete_carousel))
 
         // --- Legacy/Direct Support ---
         .route("/verification-token/:email", get(controller::get_verification_token))
