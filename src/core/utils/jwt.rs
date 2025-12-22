@@ -90,6 +90,7 @@ pub fn verify_with_secret(
 
 /// ✅ ปรับ: เดิม panic ถ้า ENV ไม่ถูก init -> ทำให้ 500
 /// ตอนนี้ถ้า ENV ไม่มี จะใช้ secret ว่าง (ผลคือ verify fail -> กลับเป็น 401 ได้)
+#[allow(dead_code)]
 pub fn verify(token: &str) -> Result<Claims, jsonwebtoken::errors::Error> {
     let secret = ENV
         .get()
