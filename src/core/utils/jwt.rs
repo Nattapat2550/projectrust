@@ -21,27 +21,15 @@ fn now_ts() -> usize {
         .as_secs() as usize
 }
 
-/// รองรับค่า JWT_EXPIRES_IN เช่น "30d", "12h", "600" (วินาที)
 fn exp_from_env(env: &Env) -> usize {
     let s = env.jwt_expires_in.trim();
-    if s.is_empty() {
-        return 7 * 24 * 60 * 60;
-    }
-
+    if s.is_empty() { return 7 * 24 * 60 * 60; }
     let last = s.chars().last().unwrap_or(' ');
-    if last.is_ascii_digit() {
-        return s.parse::<usize>().unwrap_or(7 * 24 * 60 * 60);
-    }
-
+    if last.is_ascii_digit() { return s.parse::<usize>().unwrap_or(7 * 24 * 60 * 60); }
     let num_part = &s[..s.len().saturating_sub(1)];
     let n = num_part.parse::<usize>().unwrap_or(7);
-
     match last {
-        's' => n,
-        'm' => n * 60,
-        'h' => n * 60 * 60,
-        'd' => n * 24 * 60 * 60,
-        _ => 7 * 24 * 60 * 60,
+        's' => n, 'm' => n * 60, 'h' => n * 60 * 60, 'd' => n * 24 * 60 * 60, _ => 7 * 24 * 60 * 60,
     }
 }
 
@@ -58,7 +46,7 @@ pub fn sign(
     let claims = Claims {
         sub: user_id,
         email,
-        // name,
+        // name, // ❌ ลบออก
         role,
         exp,
         iat,
@@ -71,31 +59,16 @@ pub fn sign(
     )
 }
 
-/// ✅ ใหม่: verify โดยรับ secret ตรง ๆ (ไม่พึ่ง ENV global)
-pub fn verify_with_secret(
-    token: &str,
-    jwt_secret: &str,
-) -> Result<Claims, jsonwebtoken::errors::Error> {
+pub fn verify(token: &str) -> Result<Claims, jsonwebtoken::errors::Error> {
+    let env = ENV.get().expect("ENV not initialized");
     let mut validation = Validation::new(Algorithm::HS256);
     validation.validate_exp = true;
 
     let data = decode::<Claims>(
         token,
-        &DecodingKey::from_secret(jwt_secret.as_bytes()),
+        &DecodingKey::from_secret(env.jwt_secret.as_bytes()),
         &validation,
     )?;
 
     Ok(data.claims)
-}
-
-/// ✅ ปรับ: เดิม panic ถ้า ENV ไม่ถูก init -> ทำให้ 500
-/// ตอนนี้ถ้า ENV ไม่มี จะใช้ secret ว่าง (ผลคือ verify fail -> กลับเป็น 401 ได้)
-#[allow(dead_code)]
-pub fn verify(token: &str) -> Result<Claims, jsonwebtoken::errors::Error> {
-    let secret = ENV
-        .get()
-        .map(|e| e.jwt_secret.as_str())
-        .unwrap_or("");
-
-    verify_with_secret(token, secret)
 }
