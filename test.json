@@ -1,0 +1,351 @@
+{
+	"info": {
+		"name": "Pure API - Full Version",
+		"description": "Postman Collection ครอบคลุมทุก Route ของโปรเจกต์ Pure API (Rust/Axum)",
+		"schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
+	},
+	"variable": [
+		{
+			"key": "base_url",
+			"value": "http://localhost:5000/api",
+			"type": "string"
+		},
+		{
+			"key": "token",
+			"value": "",
+			"type": "string"
+		}
+	],
+	"item": [
+		{
+			"name": "0. Root & Health",
+			"item": [
+				{
+					"name": "Root Info",
+					"request": {
+						"method": "GET",
+						"url": "{{base_url}}/"
+					}
+				},
+				{
+					"name": "Health Check",
+					"request": {
+						"method": "GET",
+						"url": "{{base_url}}/health"
+					}
+				}
+			]
+		},
+		{
+			"name": "1. Auth",
+			"item": [
+				{
+					"name": "Register",
+					"request": {
+						"method": "POST",
+						"header": [{"key": "Content-Type", "value": "application/json"}],
+						"body": {"mode": "raw", "raw": "{\n    \"email\": \"test@example.com\",\n    \"password\": \"password123\"\n}"},
+						"url": "{{base_url}}/auth/register"
+					}
+				},
+				{
+					"name": "Verify Code",
+					"request": {
+						"method": "POST",
+						"header": [{"key": "Content-Type", "value": "application/json"}],
+						"body": {"mode": "raw", "raw": "{\n    \"email\": \"test@example.com\",\n    \"code\": \"123456\"\n}"},
+						"url": "{{base_url}}/auth/verify-code"
+					}
+				},
+				{
+					"name": "Complete Profile",
+					"request": {
+						"method": "POST",
+						"header": [{"key": "Content-Type", "value": "application/json"}],
+						"body": {"mode": "raw", "raw": "{\n    \"username\": \"testuser\"\n}"},
+						"url": "{{base_url}}/auth/complete-profile"
+					}
+				},
+				{
+					"name": "Login (Auto Save Token)",
+					"event": [
+						{
+							"listen": "test",
+							"script": {
+								"exec": [
+									"var jsonData = pm.response.json();",
+									"if(jsonData.token) { pm.collectionVariables.set(\"token\", jsonData.token); }",
+									"if(jsonData.data && jsonData.data.token) { pm.collectionVariables.set(\"token\", jsonData.data.token); }"
+								],
+								"type": "text/javascript"
+							}
+						}
+					],
+					"request": {
+						"method": "POST",
+						"header": [{"key": "Content-Type", "value": "application/json"}],
+						"body": {"mode": "raw", "raw": "{\n    \"email\": \"test@example.com\",\n    \"password\": \"password123\"\n}"},
+						"url": "{{base_url}}/auth/login"
+					}
+				},
+				{
+					"name": "Logout",
+					"request": {
+						"method": "POST",
+						"url": "{{base_url}}/auth/logout"
+					}
+				},
+				{
+					"name": "Forgot Password",
+					"request": {
+						"method": "POST",
+						"header": [{"key": "Content-Type", "value": "application/json"}],
+						"body": {"mode": "raw", "raw": "{\n    \"email\": \"test@example.com\"\n}"},
+						"url": "{{base_url}}/auth/forgot-password"
+					}
+				},
+				{
+					"name": "Reset Password",
+					"request": {
+						"method": "POST",
+						"header": [{"key": "Content-Type", "value": "application/json"}],
+						"body": {"mode": "raw", "raw": "{\n    \"token\": \"reset_token_here\",\n    \"new_password\": \"newpassword123\"\n}"},
+						"url": "{{base_url}}/auth/reset-password"
+					}
+				},
+				{
+					"name": "OAuth Google",
+					"request": {
+						"method": "POST",
+						"header": [{"key": "Content-Type", "value": "application/json"}],
+						"body": {"mode": "raw", "raw": "{\n    \"token\": \"google_id_token_here\"\n}"},
+						"url": "{{base_url}}/auth/oauth/google"
+					}
+				},
+				{
+					"name": "Me (Auth User)",
+					"request": {
+						"auth": {"type": "bearer", "bearer": [{"key": "token", "value": "{{token}}", "type": "string"}]},
+						"method": "GET",
+						"url": "{{base_url}}/auth/me"
+					}
+				}
+			]
+		},
+		{
+			"name": "2. Users",
+			"item": [
+				{
+					"name": "Get Me",
+					"request": {
+						"auth": {"type": "bearer", "bearer": [{"key": "token", "value": "{{token}}", "type": "string"}]},
+						"method": "GET",
+						"url": "{{base_url}}/users/me"
+					}
+				},
+				{
+					"name": "Update Me",
+					"request": {
+						"auth": {"type": "bearer", "bearer": [{"key": "token", "value": "{{token}}", "type": "string"}]},
+						"method": "PATCH",
+						"header": [{"key": "Content-Type", "value": "application/json"}],
+						"body": {"mode": "raw", "raw": "{\n    \"username\": \"new_name\",\n    \"profile_picture_url\": \"https://example.com/pic.jpg\"\n}"},
+						"url": "{{base_url}}/users/me"
+					}
+				},
+				{
+					"name": "List Users (Admin)",
+					"request": {
+						"auth": {"type": "bearer", "bearer": [{"key": "token", "value": "{{token}}", "type": "string"}]},
+						"method": "GET",
+						"url": "{{base_url}}/users"
+					}
+				},
+				{
+					"name": "Update Role (Admin)",
+					"request": {
+						"auth": {"type": "bearer", "bearer": [{"key": "token", "value": "{{token}}", "type": "string"}]},
+						"method": "PATCH",
+						"header": [{"key": "Content-Type", "value": "application/json"}],
+						"body": {"mode": "raw", "raw": "{\n    \"role\": \"ADMIN\"\n}"},
+						"url": "{{base_url}}/users/1/role"
+					}
+				}
+			]
+		},
+		{
+			"name": "3. Admin (Clients)",
+			"item": [
+				{
+					"name": "List Clients",
+					"request": {
+						"auth": {"type": "bearer", "bearer": [{"key": "token", "value": "{{token}}", "type": "string"}]},
+						"method": "GET",
+						"url": "{{base_url}}/admin/clients"
+					}
+				},
+				{
+					"name": "Create Client",
+					"request": {
+						"auth": {"type": "bearer", "bearer": [{"key": "token", "value": "{{token}}", "type": "string"}]},
+						"method": "POST",
+						"header": [{"key": "Content-Type", "value": "application/json"}],
+						"body": {"mode": "raw", "raw": "{\n    \"name\": \"New Client\"\n}"},
+						"url": "{{base_url}}/admin/clients"
+					}
+				},
+				{
+					"name": "Update Client",
+					"request": {
+						"auth": {"type": "bearer", "bearer": [{"key": "token", "value": "{{token}}", "type": "string"}]},
+						"method": "PATCH",
+						"header": [{"key": "Content-Type", "value": "application/json"}],
+						"body": {"mode": "raw", "raw": "{\n    \"name\": \"Updated Client\"\n}"},
+						"url": "{{base_url}}/admin/clients/1"
+					}
+				},
+				{
+					"name": "Delete Client",
+					"request": {
+						"auth": {"type": "bearer", "bearer": [{"key": "token", "value": "{{token}}", "type": "string"}]},
+						"method": "DELETE",
+						"url": "{{base_url}}/admin/clients/1"
+					}
+				}
+			]
+		},
+		{
+			"name": "4. Carousel",
+			"item": [
+				{
+					"name": "List Carousel (Public)",
+					"request": {
+						"method": "GET",
+						"url": "{{base_url}}/carousel"
+					}
+				},
+				{
+					"name": "Create Carousel (Admin)",
+					"request": {
+						"auth": {"type": "bearer", "bearer": [{"key": "token", "value": "{{token}}", "type": "string"}]},
+						"method": "POST",
+						"header": [{"key": "Content-Type", "value": "application/json"}],
+						"body": {"mode": "raw", "raw": "{\n    \"image_url\": \"https://example.com/banner.png\"\n}"},
+						"url": "{{base_url}}/carousel"
+					}
+				},
+				{
+					"name": "Update Carousel (Admin)",
+					"request": {
+						"auth": {"type": "bearer", "bearer": [{"key": "token", "value": "{{token}}", "type": "string"}]},
+						"method": "PUT",
+						"header": [{"key": "Content-Type", "value": "application/json"}],
+						"body": {"mode": "raw", "raw": "{\n    \"image_url\": \"https://example.com/banner-updated.png\"\n}"},
+						"url": "{{base_url}}/carousel/1"
+					}
+				},
+				{
+					"name": "Delete Carousel (Admin)",
+					"request": {
+						"auth": {"type": "bearer", "bearer": [{"key": "token", "value": "{{token}}", "type": "string"}]},
+						"method": "DELETE",
+						"url": "{{base_url}}/carousel/1"
+					}
+				}
+			]
+		},
+		{
+			"name": "5. Homepage",
+			"item": [
+				{
+					"name": "Get Hero (Public)",
+					"request": {
+						"method": "GET",
+						"url": "{{base_url}}/homepage/hero"
+					}
+				},
+				{
+					"name": "Update Hero (Admin)",
+					"request": {
+						"auth": {"type": "bearer", "bearer": [{"key": "token", "value": "{{token}}", "type": "string"}]},
+						"method": "PUT",
+						"header": [{"key": "Content-Type", "value": "application/json"}],
+						"body": {"mode": "raw", "raw": "{\n    \"title\": \"New Hero Title\"\n}"},
+						"url": "{{base_url}}/homepage/hero"
+					}
+				},
+				{
+					"name": "Get Section (Public)",
+					"request": {
+						"method": "GET",
+						"url": "{{base_url}}/homepage/about"
+					}
+				},
+				{
+					"name": "Update Section (Admin)",
+					"request": {
+						"auth": {"type": "bearer", "bearer": [{"key": "token", "value": "{{token}}", "type": "string"}]},
+						"method": "PUT",
+						"header": [{"key": "Content-Type", "value": "application/json"}],
+						"body": {"mode": "raw", "raw": "{\n    \"content\": \"Updated content\"\n}"},
+						"url": "{{base_url}}/homepage/about"
+					}
+				}
+			]
+		},
+		{
+			"name": "6. Download (API Key)",
+			"item": [
+				{
+					"name": "Download Windows",
+					"request": {
+						"method": "GET",
+						"header": [{"key": "x-api-key", "value": "windows-key-123"}],
+						"url": "{{base_url}}/download/windows"
+					}
+				},
+				{
+					"name": "Download Android",
+					"request": {
+						"method": "GET",
+						"header": [{"key": "x-api-key", "value": "android-key-123"}],
+						"url": "{{base_url}}/download/android"
+					}
+				}
+			]
+		},
+		{
+			"name": "7. Internal (Service to Service)",
+			"item": [
+				{
+					"name": "Find User",
+					"request": {
+						"method": "POST",
+						"url": "{{base_url}}/internal/find-user"
+					}
+				},
+				{
+					"name": "Delete User",
+					"request": {
+						"method": "POST",
+						"url": "{{base_url}}/internal/delete-user"
+					}
+				},
+				{
+					"name": "List Users (Admin Internal)",
+					"request": {
+						"method": "GET",
+						"url": "{{base_url}}/internal/admin/users"
+					}
+				},
+				{
+					"name": "Get Verification Token",
+					"request": {
+						"method": "GET",
+						"url": "{{base_url}}/internal/verification-token/test@example.com"
+					}
+				}
+			]
+		}
+	]
+}
