@@ -30,3 +30,11 @@ thiserror = "1.0"
 sha2 = "0.10"
 hex = "0.4"
 rand = "0.8"
+
+# 🌟 เพิ่ม Profile สำหรับโหมด Release เพื่อรีด Performance สูงสุด
+[profile.release]
+opt-level = 3         # รีดความเร็วโค้ดสูงสุด
+lto = "fat"           # Optimize การทำงานข้าม crate
+codegen-units = 1     # ช่วยให้ LTO ทำงานได้ดีที่สุด
+panic = "abort"       # ลด Overhead การจัดการ Memory เมื่อเกิด Error
+strip = true          # เอา Debug symbol ออกเพื่อให้ไฟล์รันเร็วขึ้นและกินแรมน้อยลง
