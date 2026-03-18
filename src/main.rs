@@ -38,7 +38,9 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
     tracing::info!("🚀 Server running on http://{}", addr);
 
     // 6. Run Server with Graceful Shutdown
-    axum::serve(listener, app)
+    // ✅ แก้ไข: เพิ่ม .into_make_service_with_connect_info::<SocketAddr>() 
+    // เพื่อให้ GovernorLayer (Rate Limit) สามารถหา IP Address เจอและไม่พ่น Error 500
+    axum::serve(listener, app.into_make_service_with_connect_info::<SocketAddr>())
         .with_graceful_shutdown(shutdown_signal())
         .await?;
 
