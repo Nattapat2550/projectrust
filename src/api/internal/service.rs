@@ -5,21 +5,44 @@ use super::schema::*;
 use bcrypt::{hash, DEFAULT_COST};
 use chrono::{DateTime, Utc};
 
+// มาโครสำหรับช่วย Map Row ให้เป็น UserLite เพื่อลดความซ้ำซ้อนและกัน Error
+macro_rules! map_user_lite {
+    ($r:expr) => {
+        UserLite {
+            id: $r.get("id"),
+            user_id: $r.try_get("user_id").unwrap_or(None),
+            email: $r.get("email"),
+            username: $r.try_get("username").unwrap_or(None),
+            first_name: $r.try_get("first_name").unwrap_or(None),
+            last_name: $r.try_get("last_name").unwrap_or(None),
+            tel: $r.try_get("tel").unwrap_or(None),
+            status: $r.try_get("status").unwrap_or(None),
+            role: $r.try_get("role").unwrap_or_else(|_| "user".to_string()),
+            password_hash: $r.try_get("password_hash").unwrap_or(None),
+            is_email_verified: $r.try_get("is_email_verified").unwrap_or(false),
+            oauth_provider: $r.try_get("oauth_provider").unwrap_or(None),
+            profile_picture_url: $r.try_get("profile_picture_url").unwrap_or(None),
+        }
+    };
+}
+
 // --- User Management ---
 
 pub async fn find_user(db: &DB, body: FindUserBody) -> Result<UserLite, AppError> {
+    let query_str = "SELECT id, user_id::text AS user_id, email, username, first_name, last_name, tel, status, role, password_hash, oauth_provider, is_email_verified, profile_picture_url FROM users";
+    
     let row = if let Some(email) = &body.email {
-        sqlx::query("SELECT id, email, username, role, password_hash, oauth_provider, is_email_verified, profile_picture_url FROM users WHERE LOWER(email) = $1")
+        sqlx::query(&format!("{} WHERE LOWER(email) = $1", query_str))
             .bind(email.trim().to_lowercase())
             .fetch_optional(&db.pool)
             .await?
     } else if let Some(id) = body.id {
-        sqlx::query("SELECT id, email, username, role, password_hash, oauth_provider, is_email_verified, profile_picture_url FROM users WHERE id = $1")
+        sqlx::query(&format!("{} WHERE id = $1", query_str))
             .bind(id)
             .fetch_optional(&db.pool)
             .await?
     } else if let (Some(p), Some(oid)) = (&body.provider, &body.oauth_id) {
-        sqlx::query("SELECT id, email, username, role, password_hash, oauth_provider, is_email_verified, profile_picture_url FROM users WHERE oauth_provider = $1 AND oauth_id = $2")
+        sqlx::query(&format!("{} WHERE oauth_provider = $1 AND oauth_id = $2", query_str))
             .bind(p)
             .bind(oid)
             .fetch_optional(&db.pool)
@@ -29,17 +52,7 @@ pub async fn find_user(db: &DB, body: FindUserBody) -> Result<UserLite, AppError
     };
 
     let r = row.ok_or_else(|| AppError::not_found("USER_NOT_FOUND", "User not found"))?;
-
-    Ok(UserLite {
-        id: r.get("id"),
-        email: r.get("email"),
-        username: r.get("username"),
-        role: r.get("role"),
-        password_hash: r.get("password_hash"),
-        is_email_verified: r.get("is_email_verified"),
-        oauth_provider: r.get("oauth_provider"),
-        profile_picture_url: r.get("profile_picture_url"),
-    })
+    Ok(map_user_lite!(r))
 }
 
 pub async fn create_user_email(db: &DB, body: CreateUserEmailBody) -> Result<UserLite, AppError> {
@@ -47,7 +60,9 @@ pub async fn create_user_email(db: &DB, body: CreateUserEmailBody) -> Result<Use
     let default_username = email.split('@').next().unwrap_or("user").to_string();
 
     let r = sqlx::query(
-        "INSERT INTO users (email, username, role, is_email_verified, oauth_provider) VALUES ($1, $2, 'user', FALSE, 'local') RETURNING id, email, username, role, password_hash, oauth_provider, is_email_verified, profile_picture_url"
+        "INSERT INTO users (email, username, role, status, is_email_verified, oauth_provider) 
+         VALUES ($1, $2, 'user', 'active', FALSE, 'local') 
+         RETURNING id, user_id::text AS user_id, email, username, first_name, last_name, tel, status, role, password_hash, oauth_provider, is_email_verified, profile_picture_url"
     )
     .bind(&email)
     .bind(&default_username)
@@ -55,16 +70,7 @@ pub async fn create_user_email(db: &DB, body: CreateUserEmailBody) -> Result<Use
     .await
     .map_err(|e| AppError::internal(format!("DB Error: {}", e)))?;
 
-    Ok(UserLite {
-        id: r.get("id"),
-        email: r.get("email"),
-        username: r.get("username"),
-        role: r.get("role"),
-        password_hash: r.get("password_hash"),
-        is_email_verified: r.get("is_email_verified"),
-        oauth_provider: r.get("oauth_provider"),
-        profile_picture_url: r.get("profile_picture_url"),
-    })
+    Ok(map_user_lite!(r))
 }
 
 pub async fn set_oauth_user(db: &DB, body: SetOAuthUserBody) -> Result<UserLite, AppError> {
@@ -77,7 +83,10 @@ pub async fn set_oauth_user(db: &DB, body: SetOAuthUserBody) -> Result<UserLite,
     let r = if let Some(u) = existing {
         let user_id: i32 = u.get("id");
         sqlx::query(
-            "UPDATE users SET oauth_provider = $2, oauth_id = $3, is_email_verified = TRUE, profile_picture_url = COALESCE($4, profile_picture_url), username = COALESCE(username, $5) WHERE id = $1 RETURNING id, email, username, role, password_hash, oauth_provider, is_email_verified, profile_picture_url"
+            "UPDATE users 
+             SET oauth_provider = $2, oauth_id = $3, is_email_verified = TRUE, profile_picture_url = COALESCE($4, profile_picture_url), username = COALESCE(username, $5) 
+             WHERE id = $1 
+             RETURNING id, user_id::text AS user_id, email, username, first_name, last_name, tel, status, role, password_hash, oauth_provider, is_email_verified, profile_picture_url"
         )
         .bind(user_id)
         .bind(&body.provider)
@@ -89,7 +98,9 @@ pub async fn set_oauth_user(db: &DB, body: SetOAuthUserBody) -> Result<UserLite,
     } else {
         let username = body.name.clone().unwrap_or_else(|| email.split('@').next().unwrap_or("user").to_string());
         sqlx::query(
-            "INSERT INTO users (email, username, role, is_email_verified, oauth_provider, oauth_id, profile_picture_url) VALUES ($1, $2, 'user', TRUE, $3, $4, $5) RETURNING id, email, username, role, password_hash, oauth_provider, is_email_verified, profile_picture_url"
+            "INSERT INTO users (email, username, role, status, is_email_verified, oauth_provider, oauth_id, profile_picture_url) 
+             VALUES ($1, $2, 'user', 'active', TRUE, $3, $4, $5) 
+             RETURNING id, user_id::text AS user_id, email, username, first_name, last_name, tel, status, role, password_hash, oauth_provider, is_email_verified, profile_picture_url"
         )
         .bind(&email)
         .bind(&username)
@@ -100,16 +111,7 @@ pub async fn set_oauth_user(db: &DB, body: SetOAuthUserBody) -> Result<UserLite,
         .await?
     };
 
-    Ok(UserLite {
-        id: r.get("id"),
-        email: r.get("email"),
-        username: r.get("username"),
-        role: r.get("role"),
-        password_hash: r.get("password_hash"),
-        is_email_verified: r.get("is_email_verified"),
-        oauth_provider: r.get("oauth_provider"),
-        profile_picture_url: r.get("profile_picture_url"),
-    })
+    Ok(map_user_lite!(r))
 }
 
 pub async fn set_username_password(db: &DB, body: SetUsernamePasswordBody) -> Result<UserLite, AppError> {
@@ -117,63 +119,60 @@ pub async fn set_username_password(db: &DB, body: SetUsernamePasswordBody) -> Re
     let hash = hash(body.password, DEFAULT_COST).map_err(|_| AppError::internal("Hash error"))?;
 
     let r = sqlx::query(
-        "UPDATE users SET username = $2, password_hash = $3 WHERE LOWER(email) = $1 RETURNING id, email, username, role, password_hash, oauth_provider, is_email_verified, profile_picture_url"
+        "UPDATE users 
+         SET username = COALESCE($2, username), 
+             password_hash = $3, 
+             first_name = COALESCE($4, first_name), 
+             last_name = COALESCE($5, last_name), 
+             tel = COALESCE($6, tel) 
+         WHERE LOWER(email) = $1 
+         RETURNING id, user_id::text AS user_id, email, username, first_name, last_name, tel, status, role, password_hash, oauth_provider, is_email_verified, profile_picture_url"
     )
     .bind(&email)
     .bind(&body.username)
     .bind(hash)
+    .bind(&body.first_name)
+    .bind(&body.last_name)
+    .bind(&body.tel)
     .fetch_optional(&db.pool)
     .await?;
 
     let Some(r) = r else { return Err(AppError::not_found("USER_NOT_FOUND", "User not found")); };
-
-    Ok(UserLite {
-        id: r.get("id"),
-        email: r.get("email"),
-        username: r.get("username"),
-        role: r.get("role"),
-        password_hash: r.get("password_hash"),
-        is_email_verified: r.get("is_email_verified"),
-        oauth_provider: r.get("oauth_provider"),
-        profile_picture_url: r.get("profile_picture_url"),
-    })
+    Ok(map_user_lite!(r))
 }
 
 pub async fn update_user(db: &DB, body: UpdateUserBody) -> Result<UserLite, AppError> {
-    let existing = sqlx::query("SELECT id, username, profile_picture_url FROM users WHERE id = $1")
-        .bind(body.id)
-        .fetch_optional(&db.pool)
-        .await?;
+    let r = sqlx::query(
+        "UPDATE users 
+         SET username = COALESCE($2, username), 
+             profile_picture_url = COALESCE($3, profile_picture_url),
+             first_name = COALESCE($4, first_name),
+             last_name = COALESCE($5, last_name),
+             tel = COALESCE($6, tel),
+             status = COALESCE($7, status),
+             role = COALESCE($8, role),
+             updated_at = NOW()
+         WHERE id = $1 
+         RETURNING id, user_id::text AS user_id, email, username, first_name, last_name, tel, status, role, password_hash, oauth_provider, is_email_verified, profile_picture_url"
+    )
+    .bind(body.id)
+    .bind(&body.username)
+    .bind(&body.profile_picture_url)
+    .bind(&body.first_name)
+    .bind(&body.last_name)
+    .bind(&body.tel)
+    .bind(&body.status)
+    .bind(&body.role)
+    .fetch_optional(&db.pool)
+    .await?;
 
-    let Some(existing) = existing else {
+    let Some(r) = r else {
         return Err(AppError::not_found("USER_NOT_FOUND", "User not found"));
     };
 
-    let new_username = body.username.or(existing.try_get("username").ok());
-    let new_pic = body.profile_picture_url.or(existing.try_get("profile_picture_url").ok());
-
-    let r = sqlx::query(
-        "UPDATE users SET username = $2, profile_picture_url = $3 WHERE id = $1 RETURNING id, email, username, role, password_hash, oauth_provider, is_email_verified, profile_picture_url"
-    )
-    .bind(body.id)
-    .bind(new_username)
-    .bind(new_pic)
-    .fetch_one(&db.pool)
-    .await?;
-
-    Ok(UserLite {
-        id: r.get("id"),
-        email: r.get("email"),
-        username: r.get("username"),
-        role: r.get("role"),
-        password_hash: r.get("password_hash"),
-        is_email_verified: r.get("is_email_verified"),
-        oauth_provider: r.get("oauth_provider"),
-        profile_picture_url: r.get("profile_picture_url"),
-    })
+    Ok(map_user_lite!(r))
 }
 
-// ✅ เพิ่ม: ลบผู้ใช้ (ON DELETE CASCADE จะลบ verification_codes / password_reset_tokens ให้เอง)
 pub async fn delete_user(db: &DB, body: DeleteUserBody) -> Result<(), AppError> {
     let res = sqlx::query("DELETE FROM users WHERE id = $1")
         .bind(body.id)
@@ -183,7 +182,6 @@ pub async fn delete_user(db: &DB, body: DeleteUserBody) -> Result<(), AppError> 
     if res.rows_affected() == 0 {
         return Err(AppError::not_found("USER_NOT_FOUND", "User not found"));
     }
-
     Ok(())
 }
 
@@ -220,30 +218,20 @@ pub async fn verify_code(db: &DB, body: VerifyCodeBody) -> Result<VerifyCodeResp
 
     let user_id: i32 = user.get("id");
 
-    let code_row = sqlx::query(
-        "SELECT id FROM verification_codes WHERE user_id = $1 AND code = $2 AND expires_at > NOW() LIMIT 1"
-    )
-    .bind(user_id)
-    .bind(&body.code)
-    .fetch_optional(&db.pool)
-    .await?;
+    let code_row = sqlx::query("SELECT id FROM verification_codes WHERE user_id = $1 AND code = $2 AND expires_at > NOW() LIMIT 1")
+        .bind(user_id)
+        .bind(&body.code)
+        .fetch_optional(&db.pool)
+        .await?;
 
     if let Some(c) = code_row {
         let code_id: i32 = c.get("id");
         let mut tx = db.pool.begin().await?;
 
-        sqlx::query("DELETE FROM verification_codes WHERE id = $1")
-            .bind(code_id)
-            .execute(&mut *tx)
-            .await?;
-
-        sqlx::query("UPDATE users SET is_email_verified = TRUE WHERE id = $1")
-            .bind(user_id)
-            .execute(&mut *tx)
-            .await?;
+        sqlx::query("DELETE FROM verification_codes WHERE id = $1").bind(code_id).execute(&mut *tx).await?;
+        sqlx::query("UPDATE users SET is_email_verified = TRUE WHERE id = $1").bind(user_id).execute(&mut *tx).await?;
 
         tx.commit().await?;
-
         Ok(VerifyCodeResponse { ok: true, user_id, reason: None })
     } else {
         Ok(VerifyCodeResponse { ok: false, user_id: 0, reason: Some("Invalid or expired code".into()) })
@@ -262,29 +250,18 @@ pub async fn create_reset_token(db: &DB, body: CreateResetTokenBody) -> Result<(
             .map_err(|_| AppError::bad_request("Invalid date"))?
             .with_timezone(&Utc);
 
-        sqlx::query("DELETE FROM password_reset_tokens WHERE user_id = $1")
-            .bind(user_id)
-            .execute(&db.pool)
-            .await?;
-
+        sqlx::query("DELETE FROM password_reset_tokens WHERE user_id = $1").bind(user_id).execute(&db.pool).await?;
         sqlx::query("INSERT INTO password_reset_tokens (user_id, token, expires_at) VALUES ($1, $2, $3)")
-            .bind(user_id)
-            .bind(&body.token)
-            .bind(expires_at)
-            .execute(&db.pool)
-            .await?;
+            .bind(user_id).bind(&body.token).bind(expires_at).execute(&db.pool).await?;
     }
-
     Ok(())
 }
 
 pub async fn consume_reset_token(db: &DB, body: ConsumeResetTokenBody) -> Result<UserLite, AppError> {
-    let row = sqlx::query(
-        "SELECT user_id FROM password_reset_tokens WHERE token = $1 AND expires_at > NOW() AND is_used = FALSE"
-    )
-    .bind(&body.token)
-    .fetch_optional(&db.pool)
-    .await?;
+    let row = sqlx::query("SELECT user_id FROM password_reset_tokens WHERE token = $1 AND expires_at > NOW() AND is_used = FALSE")
+        .bind(&body.token)
+        .fetch_optional(&db.pool)
+        .await?;
 
     if let Some(r) = row {
         let user_id: i32 = r.get("user_id");
@@ -295,22 +272,13 @@ pub async fn consume_reset_token(db: &DB, body: ConsumeResetTokenBody) -> Result
             .await?;
 
         let r = sqlx::query(
-            "SELECT id, email, username, role, password_hash, oauth_provider, is_email_verified, profile_picture_url FROM users WHERE id = $1"
+            "SELECT id, user_id::text AS user_id, email, username, first_name, last_name, tel, status, role, password_hash, oauth_provider, is_email_verified, profile_picture_url FROM users WHERE id = $1"
         )
         .bind(user_id)
         .fetch_one(&db.pool)
         .await?;
 
-        Ok(UserLite {
-            id: r.get("id"),
-            email: r.get("email"),
-            username: r.get("username"),
-            role: r.get("role"),
-            password_hash: r.get("password_hash"),
-            is_email_verified: r.get("is_email_verified"),
-            oauth_provider: r.get("oauth_provider"),
-            profile_picture_url: r.get("profile_picture_url"),
-        })
+        Ok(map_user_lite!(r))
     } else {
         Err(AppError::bad_request("Invalid or expired token"))
     }
@@ -328,23 +296,14 @@ pub async fn set_password(db: &DB, body: SetPasswordBody) -> Result<(), AppError
 
 pub async fn list_users(db: &DB) -> Result<Vec<UserLite>, AppError> {
     let rows = sqlx::query(
-        "SELECT id, email, username, role, password_hash, oauth_provider, is_email_verified, profile_picture_url FROM users ORDER BY id DESC"
+        "SELECT id, user_id::text AS user_id, email, username, first_name, last_name, tel, status, role, password_hash, oauth_provider, is_email_verified, profile_picture_url FROM users ORDER BY id DESC"
     )
     .fetch_all(&db.pool)
     .await?;
 
     let mut out = Vec::new();
     for r in rows {
-        out.push(UserLite {
-            id: r.get("id"),
-            email: r.get("email"),
-            username: r.get("username"),
-            role: r.get("role"),
-            password_hash: r.get("password_hash"),
-            is_email_verified: r.get("is_email_verified"),
-            oauth_provider: r.get("oauth_provider"),
-            profile_picture_url: r.get("profile_picture_url"),
-        });
+        out.push(map_user_lite!(r));
     }
     Ok(out)
 }
@@ -376,11 +335,10 @@ pub async fn set_client_active(db: &DB, id: i32, is_active: bool) -> Result<(), 
     if res.rows_affected() == 0 {
         return Err(AppError::not_found("CLIENT_NOT_FOUND", "Client not found"));
     }
-
     Ok(())
 }
 
-// --- Homepage (List all content) ---
+// --- Homepage ---
 
 pub async fn get_homepage_content(db: &DB) -> Result<Vec<HomepageContentRow>, AppError> {
     let rows = sqlx::query("SELECT section_name, content FROM homepage_content")
@@ -510,6 +468,5 @@ pub async fn delete_carousel(db: &DB, body: DeleteCarouselBody) -> Result<(), Ap
     Ok(())
 }
 
-// Legacy placeholders
 pub async fn get_verification_token(_db: &DB, _email: String) -> Result<String, AppError> { Ok("".into()) }
 pub async fn get_reset_token(_db: &DB, _email: String) -> Result<String, AppError> { Ok("".into()) }

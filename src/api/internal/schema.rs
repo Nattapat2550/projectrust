@@ -14,8 +14,13 @@ pub struct FindUserBody {
 #[derive(Debug, Serialize)]
 pub struct UserLite {
     pub id: i32,
+    pub user_id: Option<String>, // เพิ่มเพื่อรองรับการส่ง UUID กลับไป
     pub email: String,
     pub username: Option<String>,
+    pub first_name: Option<String>,
+    pub last_name: Option<String>,
+    pub tel: Option<String>,
+    pub status: Option<String>,
     pub role: String,
     pub password_hash: Option<String>,
     pub is_email_verified: bool,
@@ -45,6 +50,12 @@ pub struct SetUsernamePasswordBody {
     pub email: String,
     pub username: String,
     pub password: String,
+    #[serde(alias = "firstname", alias = "firstName")]
+    pub first_name: Option<String>,
+    #[serde(alias = "lastname", alias = "lastName")]
+    pub last_name: Option<String>,
+    #[serde(alias = "telephone", alias = "phone")]
+    pub tel: Option<String>,
 }
 
 #[derive(Debug, Deserialize)]
@@ -52,13 +63,18 @@ pub struct SetUsernamePasswordBody {
 pub struct UpdateUserBody {
     pub id: i32,
     pub username: Option<String>,
-
-    // รองรับทั้ง profilePictureUrl (camelCase) และ profile_picture_url (snake_case)
     #[serde(alias = "profile_picture_url")]
     pub profile_picture_url: Option<String>,
+    #[serde(alias = "firstname", alias = "firstName")]
+    pub first_name: Option<String>,
+    #[serde(alias = "lastname", alias = "lastName")]
+    pub last_name: Option<String>,
+    #[serde(alias = "telephone", alias = "phone")]
+    pub tel: Option<String>,
+    pub status: Option<String>,
+    pub role: Option<String>,
 }
 
-// ✅ เพิ่ม: รองรับ /api/internal/delete-user
 #[derive(Debug, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub struct DeleteUserBody {
@@ -147,12 +163,10 @@ pub struct CarouselItem {
 pub struct CreateCarouselBody {
     #[serde(alias = "image_url", alias = "image_dataurl", alias = "imageDataUrl")]
     pub image_url: String,
-
     pub item_index: Option<i32>,
     pub title: Option<String>,
     pub subtitle: Option<String>,
     pub description: Option<String>,
-
     #[allow(dead_code)]
     pub link: Option<String>,
 }
@@ -161,15 +175,12 @@ pub struct CreateCarouselBody {
 #[serde(rename_all = "camelCase")]
 pub struct UpdateCarouselBody {
     pub id: i32,
-
     #[serde(alias = "image_url", alias = "image_dataurl", alias = "imageDataUrl")]
     pub image_url: Option<String>,
-
     pub item_index: Option<i32>,
     pub title: Option<String>,
     pub subtitle: Option<String>,
     pub description: Option<String>,
-
     #[allow(dead_code)]
     pub link: Option<String>,
 }
