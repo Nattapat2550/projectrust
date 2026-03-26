@@ -147,7 +147,8 @@ VALUES
   ('android-app',    'android-key-123'),
   ('windows-app',    'windows-key-123'),
   ('docker-worker',  'docker-key-123'),
-  ('golang-web',     'golang-key-123')
+  ('golang-web',     'golang-key-123'),
+  ('concert-test',   'concert-key-123')
 ON CONFLICT (api_key) DO NOTHING;
 
 
