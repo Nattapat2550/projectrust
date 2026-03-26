@@ -3,18 +3,18 @@ use serde::{Deserialize, Serialize};
 // --- User Schemas ---
 
 #[derive(Debug, Deserialize)]
-#[serde(rename_all = "camelCase")]
 pub struct FindUserBody {
     pub email: Option<String>,
     pub id: Option<i32>,
     pub provider: Option<String>,
+    #[serde(alias = "oauthId", alias = "oauth_id")]
     pub oauth_id: Option<String>,
 }
 
 #[derive(Debug, Serialize)]
 pub struct UserLite {
     pub id: i32,
-    pub user_id: Option<String>, // เพิ่มเพื่อรองรับการส่ง UUID กลับไป
+    pub user_id: Option<String>,
     pub email: String,
     pub username: Option<String>,
     pub first_name: Option<String>,
@@ -29,99 +29,102 @@ pub struct UserLite {
 }
 
 #[derive(Debug, Deserialize)]
-#[serde(rename_all = "camelCase")]
 pub struct CreateUserEmailBody {
     pub email: String,
 }
 
 #[derive(Debug, Deserialize)]
-#[serde(rename_all = "camelCase")]
 pub struct SetOAuthUserBody {
     pub email: String,
     pub provider: String,
+    #[serde(alias = "oauthId", alias = "oauth_id")]
     pub oauth_id: String,
+    #[serde(alias = "pictureUrl", alias = "picture_url")]
     pub picture_url: Option<String>,
     pub name: Option<String>,
 }
 
+// เอา rename_all ออก และดักจับทุกรูปแบบ
 #[derive(Debug, Deserialize)]
-#[serde(rename_all = "camelCase")]
 pub struct SetUsernamePasswordBody {
     pub email: String,
     pub username: String,
     pub password: String,
-    #[serde(alias = "firstname", alias = "firstName")]
+    #[serde(alias = "firstname", alias = "firstName", alias = "first_name")]
     pub first_name: Option<String>,
-    #[serde(alias = "lastname", alias = "lastName")]
+    #[serde(alias = "lastname", alias = "lastName", alias = "last_name")]
     pub last_name: Option<String>,
-    #[serde(alias = "telephone", alias = "phone")]
+    #[serde(alias = "telephone", alias = "phone", alias = "tel")]
     pub tel: Option<String>,
 }
 
+// เอา rename_all ออก และดักจับทุกรูปแบบ
 #[derive(Debug, Deserialize)]
-#[serde(rename_all = "camelCase")]
 pub struct UpdateUserBody {
     pub id: i32,
     pub username: Option<String>,
-    #[serde(alias = "profile_picture_url")]
+    #[serde(alias = "profilePictureUrl", alias = "profile_picture_url")]
     pub profile_picture_url: Option<String>,
-    #[serde(alias = "firstname", alias = "firstName")]
+    
+    #[serde(alias = "firstname", alias = "firstName", alias = "first_name")]
     pub first_name: Option<String>,
-    #[serde(alias = "lastname", alias = "lastName")]
+    
+    #[serde(alias = "lastname", alias = "lastName", alias = "last_name")]
     pub last_name: Option<String>,
-    #[serde(alias = "telephone", alias = "phone")]
+    
+    #[serde(alias = "telephone", alias = "phone", alias = "tel")]
     pub tel: Option<String>,
+    
     pub status: Option<String>,
     pub role: Option<String>,
 }
 
 #[derive(Debug, Deserialize)]
-#[serde(rename_all = "camelCase")]
 pub struct DeleteUserBody {
     pub id: i32,
 }
 
 #[derive(Debug, Deserialize)]
-#[serde(rename_all = "camelCase")]
 pub struct StoreVerificationCodeBody {
+    #[serde(alias = "userId", alias = "user_id")]
     pub user_id: i32,
     pub code: String,
+    #[serde(alias = "expiresAt", alias = "expires_at")]
     pub expires_at: String,
 }
 
 #[derive(Debug, Deserialize)]
-#[serde(rename_all = "camelCase")]
 pub struct VerifyCodeBody {
     pub email: String,
     pub code: String,
 }
 
 #[derive(Debug, Serialize)]
-#[serde(rename_all = "camelCase")]
 pub struct VerifyCodeResponse {
     pub ok: bool,
+    #[serde(rename = "userId")]
     pub user_id: i32,
     pub reason: Option<String>,
 }
 
 #[derive(Debug, Deserialize)]
-#[serde(rename_all = "camelCase")]
 pub struct CreateResetTokenBody {
     pub email: String,
     pub token: String,
+    #[serde(alias = "expiresAt", alias = "expires_at")]
     pub expires_at: String,
 }
 
 #[derive(Debug, Deserialize)]
-#[serde(rename_all = "camelCase")]
 pub struct ConsumeResetTokenBody {
     pub token: String,
 }
 
 #[derive(Debug, Deserialize)]
-#[serde(rename_all = "camelCase")]
 pub struct SetPasswordBody {
+    #[serde(alias = "userId", alias = "user_id")]
     pub user_id: i32,
+    #[serde(alias = "newPassword", alias = "new_password")]
     pub new_password: String,
 }
 
@@ -129,29 +132,34 @@ pub struct SetPasswordBody {
 pub struct ClientRow {
     pub id: i32,
     pub name: String,
+    #[serde(rename = "apiKey")]
     pub api_key: String,
+    #[serde(rename = "isActive")]
     pub is_active: bool,
 }
 
 // --- Homepage ---
 #[derive(Debug, Serialize, Deserialize)]
 pub struct HomepageContentRow {
+    #[serde(alias = "sectionName", alias = "section_name")]
     pub section_name: String,
     pub content: String,
 }
 
 #[derive(Debug, Deserialize)]
 pub struct HomepageUpdateBody {
+    #[serde(alias = "sectionName", alias = "section_name")]
     pub section_name: String,
     pub content: String,
 }
 
 // --- Carousel ---
-
 #[derive(Debug, Serialize)]
 pub struct CarouselItem {
     pub id: i32,
+    #[serde(rename = "itemIndex")]
     pub item_index: i32,
+    #[serde(rename = "imageDataUrl")]
     pub image_dataurl: String,
     pub title: Option<String>,
     pub subtitle: Option<String>,
@@ -159,10 +167,10 @@ pub struct CarouselItem {
 }
 
 #[derive(Debug, Deserialize)]
-#[serde(rename_all = "camelCase")]
 pub struct CreateCarouselBody {
     #[serde(alias = "image_url", alias = "image_dataurl", alias = "imageDataUrl")]
     pub image_url: String,
+    #[serde(alias = "itemIndex", alias = "item_index")]
     pub item_index: Option<i32>,
     pub title: Option<String>,
     pub subtitle: Option<String>,
@@ -172,11 +180,11 @@ pub struct CreateCarouselBody {
 }
 
 #[derive(Debug, Deserialize)]
-#[serde(rename_all = "camelCase")]
 pub struct UpdateCarouselBody {
     pub id: i32,
     #[serde(alias = "image_url", alias = "image_dataurl", alias = "imageDataUrl")]
     pub image_url: Option<String>,
+    #[serde(alias = "itemIndex", alias = "item_index")]
     pub item_index: Option<i32>,
     pub title: Option<String>,
     pub subtitle: Option<String>,
