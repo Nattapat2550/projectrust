@@ -8,19 +8,23 @@ use rand::{Rng, distributions::Alphanumeric};
 #[derive(sqlx::FromRow)]
 struct UserRow {
     id: i32,
+    user_id: String, // เพิ่ม
     username: Option<String>,
     email: String,
+    tel: Option<String>, // เพิ่ม
+    first_name: Option<String>, // เพิ่ม
+    last_name: Option<String>, // เพิ่ม
+    status: String, // เพิ่ม
     password_hash: Option<String>,
     role: String,
     profile_picture_url: Option<String>,
     is_email_verified: bool,
 }
 
-// ✅ เพิ่มฟังก์ชันนี้สำหรับ Route /me
 pub async fn get_me(db: &DB, user_id: i32) -> Result<UserResponse, AppError> {
     let u = sqlx::query_as::<_, UserRow>(
         r#"
-        SELECT id, username, email, password_hash, role, profile_picture_url, is_email_verified
+        SELECT id, user_id::text AS user_id, username, email, tel, first_name, last_name, status, password_hash, role, profile_picture_url, is_email_verified
         FROM users WHERE id = $1
         "#
     )
@@ -30,7 +34,8 @@ pub async fn get_me(db: &DB, user_id: i32) -> Result<UserResponse, AppError> {
     .ok_or_else(|| AppError::not_found("USER_NOT_FOUND", "User not found"))?;
 
     Ok(UserResponse {
-        id: u.id, email: u.email, username: u.username, role: u.role,
+        id: u.id, user_id: u.user_id, email: u.email, tel: u.tel, username: u.username, 
+        first_name: u.first_name, last_name: u.last_name, status: u.status, role: u.role,
         profile_picture_url: u.profile_picture_url, is_email_verified: u.is_email_verified,
     })
 }
@@ -39,9 +44,8 @@ pub async fn register(db: &DB, body: RegisterBody) -> Result<(), AppError> {
     let email = body.email.trim().to_lowercase();
     if email.is_empty() { return Err(AppError::bad_request("Email is required")); }
 
-    // ✅ แก้ไข: ไม่ใช้ SELECT *
     let user = sqlx::query_as::<_, UserRow>(
-        "SELECT id, username, email, password_hash, role, profile_picture_url, is_email_verified FROM users WHERE email = $1"
+        "SELECT id, user_id::text AS user_id, username, email, tel, first_name, last_name, status, password_hash, role, profile_picture_url, is_email_verified FROM users WHERE email = $1"
     ).bind(&email).fetch_optional(&db.pool).await?;
 
     let user_id = if let Some(u) = user {
@@ -50,7 +54,7 @@ pub async fn register(db: &DB, body: RegisterBody) -> Result<(), AppError> {
         }
         u.id
     } else {
-        let row: (i32,) = sqlx::query_as("INSERT INTO users (email, role, is_email_verified) VALUES ($1, 'user', FALSE) RETURNING id").bind(&email).fetch_one(&db.pool).await?;
+        let row: (i32,) = sqlx::query_as("INSERT INTO users (email, role, status, is_email_verified) VALUES ($1, 'user', 'active', FALSE) RETURNING id").bind(&email).fetch_one(&db.pool).await?;
         row.0
     };
 
@@ -62,9 +66,8 @@ pub async fn register(db: &DB, body: RegisterBody) -> Result<(), AppError> {
 
 pub async fn verify_code(db: &DB, body: VerifyCodeBody) -> Result<(), AppError> {
     let email = body.email.trim().to_lowercase();
-    // ✅ แก้ไข: ไม่ใช้ SELECT *
     let user = sqlx::query_as::<_, UserRow>(
-        "SELECT id, username, email, password_hash, role, profile_picture_url, is_email_verified FROM users WHERE email = $1"
+        "SELECT id, user_id::text AS user_id, username, email, tel, first_name, last_name, status, password_hash, role, profile_picture_url, is_email_verified FROM users WHERE email = $1"
     ).bind(&email).fetch_optional(&db.pool).await?.ok_or_else(|| AppError::not_found("USER_NOT_FOUND", "User not found"))?;
     
     let row = sqlx::query("SELECT id FROM verification_codes WHERE user_id = $1 AND code = $2 AND expires_at > NOW()").bind(user.id).bind(&body.code).fetch_optional(&db.pool).await?;
@@ -81,33 +84,41 @@ pub async fn complete_profile(db: &DB, env: &Env, body: CompleteProfileBody) -> 
     let pw_hash = hash(&body.password, DEFAULT_COST).map_err(|_| AppError::internal("Hash error"))?;
 
     let u = sqlx::query_as::<_, UserRow>(
-        r#"UPDATE users SET username = $2, password_hash = $3 WHERE email = $1 AND is_email_verified = TRUE RETURNING id, username, email, password_hash, role, profile_picture_url, is_email_verified"#
-    ).bind(&email).bind(&body.username).bind(pw_hash).fetch_optional(&db.pool).await?
+        r#"UPDATE users SET username = $2, password_hash = $3, tel = COALESCE($4, tel), first_name = COALESCE($5, first_name), last_name = COALESCE($6, last_name) WHERE email = $1 AND is_email_verified = TRUE RETURNING id, user_id::text AS user_id, username, email, tel, first_name, last_name, status, password_hash, role, profile_picture_url, is_email_verified"#
+    ).bind(&email).bind(&body.username).bind(pw_hash).bind(&body.tel).bind(&body.first_name).bind(&body.last_name).fetch_optional(&db.pool).await?
     .ok_or_else(|| AppError::unauthorized("NOT_VERIFIED", "User not verified or not found"))?;
 
     let token = jwt::sign(u.id, u.email.clone(), u.role.clone(), env).map_err(|_| AppError::internal("Token sign error"))?;
 
     Ok(AuthResponse {
         token,
-        user: UserResponse { id: u.id, email: u.email, username: u.username, role: u.role, profile_picture_url: u.profile_picture_url, is_email_verified: u.is_email_verified },
+        user: UserResponse { id: u.id, user_id: u.user_id, email: u.email, tel: u.tel, username: u.username, first_name: u.first_name, last_name: u.last_name, status: u.status, role: u.role, profile_picture_url: u.profile_picture_url, is_email_verified: u.is_email_verified },
     })
 }
 
 pub async fn login(db: &DB, env: &Env, body: LoginBody) -> Result<AuthResponse, AppError> {
     let email = body.email.trim().to_lowercase();
-    // ✅ แก้ไข: ไม่ใช้ SELECT *
     let u = sqlx::query_as::<_, UserRow>(
-        "SELECT id, username, email, password_hash, role, profile_picture_url, is_email_verified FROM users WHERE email = $1"
+        "SELECT id, user_id::text AS user_id, username, email, tel, first_name, last_name, status, password_hash, role, profile_picture_url, is_email_verified FROM users WHERE email = $1"
     ).bind(&email).fetch_optional(&db.pool).await?.ok_or_else(|| AppError::unauthorized("INVALID_CREDENTIALS", "Invalid credentials"))?;
     
+    // ตรวจสอบสถานะว่าโดนแบนหรือถูกลบหรือไม่
+    if u.status == "banned" { return Err(AppError::unauthorized("ACCOUNT_BANNED", "This account has been banned")); }
+    if u.status == "deleted" {
+        sqlx::query("UPDATE users SET status = 'active', updated_at = NOW() WHERE id = $1").bind(u.id).execute(&db.pool).await?;
+    }
+
     let is_valid = match &u.password_hash { Some(h) => verify(&body.password, h).unwrap_or(false), None => false };
     if !is_valid { return Err(AppError::unauthorized("INVALID_CREDENTIALS", "Invalid credentials")); }
+
+    // อัปเดตเวลา Login ล่าสุด
+    sqlx::query("UPDATE users SET last_login_at = NOW() WHERE id = $1").bind(u.id).execute(&db.pool).await?;
 
     let token = jwt::sign(u.id, u.email.clone(), u.role.clone(), env).map_err(|_| AppError::internal("Token sign error"))?;
 
     Ok(AuthResponse {
         token,
-        user: UserResponse { id: u.id, email: u.email, username: u.username, role: u.role, profile_picture_url: u.profile_picture_url, is_email_verified: u.is_email_verified },
+        user: UserResponse { id: u.id, user_id: u.user_id, email: u.email, tel: u.tel, username: u.username, first_name: u.first_name, last_name: u.last_name, status: if u.status == "deleted" { "active".to_string() } else { u.status }, role: u.role, profile_picture_url: u.profile_picture_url, is_email_verified: u.is_email_verified },
     })
 }
 
@@ -116,29 +127,24 @@ pub async fn google_oauth(db: &DB, env: &Env, body: GoogleOAuthBody) -> Result<A
     let provider = "google";
     let oauth_id = body.oauth_id;
 
-    // ✅ แก้ไข: ไม่ใช้ SELECT *
     let existing_oauth = sqlx::query_as::<_, UserRow>(
-        "SELECT id, username, email, password_hash, role, profile_picture_url, is_email_verified FROM users WHERE oauth_provider = $1 AND oauth_id = $2"
+        "SELECT id, user_id::text AS user_id, username, email, tel, first_name, last_name, status, password_hash, role, profile_picture_url, is_email_verified FROM users WHERE oauth_provider = $1 AND oauth_id = $2"
     ).bind(provider).bind(&oauth_id).fetch_optional(&db.pool).await?;
     
     let u = if let Some(user) = existing_oauth {
-        // ✅ แก้ไข: ไม่ใช้ RETURNING *
-        sqlx::query_as::<_, UserRow>(r#"UPDATE users SET email=$2, is_email_verified=TRUE, profile_picture_url=COALESCE($3, profile_picture_url), username=COALESCE(username, $4) WHERE id=$1 RETURNING id, username, email, password_hash, role, profile_picture_url, is_email_verified"#)
+        sqlx::query_as::<_, UserRow>(r#"UPDATE users SET email=$2, is_email_verified=TRUE, profile_picture_url=COALESCE($3, profile_picture_url), username=COALESCE(username, $4), last_login_at=NOW() WHERE id=$1 RETURNING id, user_id::text AS user_id, username, email, tel, first_name, last_name, status, password_hash, role, profile_picture_url, is_email_verified"#)
         .bind(user.id).bind(&email).bind(&body.picture_url).bind(&body.username).fetch_one(&db.pool).await?
     } else {
-        // ✅ แก้ไข: ไม่ใช้ SELECT *
         let existing_email = sqlx::query_as::<_, UserRow>(
-            "SELECT id, username, email, password_hash, role, profile_picture_url, is_email_verified FROM users WHERE email=$1"
+            "SELECT id, user_id::text AS user_id, username, email, tel, first_name, last_name, status, password_hash, role, profile_picture_url, is_email_verified FROM users WHERE email=$1"
         ).bind(&email).fetch_optional(&db.pool).await?;
         
         if let Some(user) = existing_email {
-             // ✅ แก้ไข: ไม่ใช้ RETURNING *
-             sqlx::query_as::<_, UserRow>(r#"UPDATE users SET oauth_provider=$2, oauth_id=$3, is_email_verified=TRUE, profile_picture_url=COALESCE($4, profile_picture_url), username=COALESCE(username, $5) WHERE id=$1 RETURNING id, username, email, password_hash, role, profile_picture_url, is_email_verified"#)
+             sqlx::query_as::<_, UserRow>(r#"UPDATE users SET oauth_provider=$2, oauth_id=$3, is_email_verified=TRUE, profile_picture_url=COALESCE($4, profile_picture_url), username=COALESCE(username, $5), last_login_at=NOW() WHERE id=$1 RETURNING id, user_id::text AS user_id, username, email, tel, first_name, last_name, status, password_hash, role, profile_picture_url, is_email_verified"#)
              .bind(user.id).bind(provider).bind(&oauth_id).bind(&body.picture_url).bind(&body.username).fetch_one(&db.pool).await?
         } else {
              let username = body.username.clone().unwrap_or_else(|| email.split('@').next().unwrap_or("user").to_string());
-             // ✅ แก้ไข: ไม่ใช้ RETURNING *
-             sqlx::query_as::<_, UserRow>(r#"INSERT INTO users (username, email, role, is_email_verified, oauth_provider, oauth_id, profile_picture_url) VALUES ($1,$2,'user',TRUE,$3,$4,$5) RETURNING id, username, email, password_hash, role, profile_picture_url, is_email_verified"#)
+             sqlx::query_as::<_, UserRow>(r#"INSERT INTO users (username, email, role, status, is_email_verified, oauth_provider, oauth_id, profile_picture_url, last_login_at) VALUES ($1,$2,'user','active',TRUE,$3,$4,$5,NOW()) RETURNING id, user_id::text AS user_id, username, email, tel, first_name, last_name, status, password_hash, role, profile_picture_url, is_email_verified"#)
              .bind(username).bind(&email).bind(provider).bind(&oauth_id).bind(&body.picture_url).fetch_one(&db.pool).await?
         }
     };
@@ -147,15 +153,14 @@ pub async fn google_oauth(db: &DB, env: &Env, body: GoogleOAuthBody) -> Result<A
 
     Ok(AuthResponse {
         token,
-        user: UserResponse { id: u.id, email: u.email, username: u.username, role: u.role, profile_picture_url: u.profile_picture_url, is_email_verified: u.is_email_verified },
+        user: UserResponse { id: u.id, user_id: u.user_id, email: u.email, tel: u.tel, username: u.username, first_name: u.first_name, last_name: u.last_name, status: u.status, role: u.role, profile_picture_url: u.profile_picture_url, is_email_verified: u.is_email_verified },
     })
 }
 
 pub async fn forgot_password(db: &DB, body: ForgotPasswordBody) -> Result<(), AppError> {
     let email = body.email.trim().to_lowercase();
-    // ✅ แก้ไข: ไม่ใช้ SELECT *
     let user = sqlx::query_as::<_, UserRow>(
-        "SELECT id, username, email, password_hash, role, profile_picture_url, is_email_verified FROM users WHERE email = $1"
+        "SELECT id, user_id::text AS user_id, username, email, tel, first_name, last_name, status, password_hash, role, profile_picture_url, is_email_verified FROM users WHERE email = $1"
     ).bind(&email).fetch_optional(&db.pool).await?;
     
     if let Some(u) = user {

@@ -1,13 +1,23 @@
 {
 	"info": {
-		"name": "Pure API - Full Version (With Tests)",
-		"description": "Postman Collection ครอบคลุมทุก Route พร้อมสคริปต์ Automated Tests ในทุก Request",
+		"name": "Pure API - Full Version (Fixed & Optimized)",
+		"description": "Postman Collection ครอบคลุมทุก Route พร้อมสคริปต์ Automated Tests แก้ไขเรื่อง Global API Key และ URL Routing",
 		"schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
 	},
 	"variable": [
 		{
 			"key": "base_url",
-			"value": "https://pure-api-aprd.onrender.com/api",
+			"value": "https://pure-api-aprd.onrender.com",
+			"type": "string"
+		},
+		{
+			"key": "api_url",
+			"value": "{{base_url}}/api",
+			"type": "string"
+		},
+		{
+			"key": "api_key",
+			"value": "docker-key-123",
 			"type": "string"
 		},
 		{
@@ -40,9 +50,12 @@
 					"event": [{"listen": "test","script": {"exec": ["pm.test(\"Successful request\", function () { pm.expect(pm.response.code).to.be.oneOf([200, 201]); });"],"type": "text/javascript"}}],
 					"request": {
 						"method": "POST",
-						"header": [{"key": "Content-Type", "value": "application/json"}],
+						"header": [
+							{"key": "Content-Type", "value": "application/json"},
+							{"key": "x-api-key", "value": "{{api_key}}"}
+						],
 						"body": {"mode": "raw", "raw": "{\n    \"email\": \"test@example.com\"\n}"},
-						"url": "{{base_url}}/auth/register"
+						"url": "{{api_url}}/auth/register"
 					}
 				},
 				{
@@ -50,9 +63,12 @@
 					"event": [{"listen": "test","script": {"exec": ["pm.test(\"Successful request\", function () { pm.expect(pm.response.code).to.be.oneOf([200, 201]); });"],"type": "text/javascript"}}],
 					"request": {
 						"method": "POST",
-						"header": [{"key": "Content-Type", "value": "application/json"}],
+						"header": [
+							{"key": "Content-Type", "value": "application/json"},
+							{"key": "x-api-key", "value": "{{api_key}}"}
+						],
 						"body": {"mode": "raw", "raw": "{\n    \"email\": \"test@example.com\",\n    \"code\": \"123456\"\n}"},
-						"url": "{{base_url}}/auth/verify-code"
+						"url": "{{api_url}}/auth/verify-code"
 					}
 				},
 				{
@@ -60,9 +76,12 @@
 					"event": [{"listen": "test","script": {"exec": ["pm.test(\"Successful request\", function () { pm.expect(pm.response.code).to.be.oneOf([200, 201]); });"],"type": "text/javascript"}}],
 					"request": {
 						"method": "POST",
-						"header": [{"key": "Content-Type", "value": "application/json"}],
+						"header": [
+							{"key": "Content-Type", "value": "application/json"},
+							{"key": "x-api-key", "value": "{{api_key}}"}
+						],
 						"body": {"mode": "raw", "raw": "{\n    \"email\": \"test@example.com\",\n    \"username\": \"testuser\",\n    \"password\": \"password123\"\n}"},
-						"url": "{{base_url}}/auth/complete-profile"
+						"url": "{{api_url}}/auth/complete-profile"
 					}
 				},
 				{
@@ -83,9 +102,12 @@
 					],
 					"request": {
 						"method": "POST",
-						"header": [{"key": "Content-Type", "value": "application/json"}],
+						"header": [
+							{"key": "Content-Type", "value": "application/json"},
+							{"key": "x-api-key", "value": "{{api_key}}"}
+						],
 						"body": {"mode": "raw", "raw": "{\n    \"email\": \"test@example.com\",\n    \"password\": \"password123\"\n}"},
-						"url": "{{base_url}}/auth/login"
+						"url": "{{api_url}}/auth/login"
 					}
 				},
 				{
@@ -93,7 +115,8 @@
 					"event": [{"listen": "test","script": {"exec": ["pm.test(\"Logout Successful\", function () { pm.expect(pm.response.code).to.be.oneOf([200, 204]); });"],"type": "text/javascript"}}],
 					"request": {
 						"method": "POST",
-						"url": "{{base_url}}/auth/logout"
+						"header": [{"key": "x-api-key", "value": "{{api_key}}"}],
+						"url": "{{api_url}}/auth/logout"
 					}
 				},
 				{
@@ -101,9 +124,12 @@
 					"event": [{"listen": "test","script": {"exec": ["pm.test(\"Successful request\", function () { pm.expect(pm.response.code).to.be.oneOf([200, 201]); });"],"type": "text/javascript"}}],
 					"request": {
 						"method": "POST",
-						"header": [{"key": "Content-Type", "value": "application/json"}],
+						"header": [
+							{"key": "Content-Type", "value": "application/json"},
+							{"key": "x-api-key", "value": "{{api_key}}"}
+						],
 						"body": {"mode": "raw", "raw": "{\n    \"email\": \"test@example.com\"\n}"},
-						"url": "{{base_url}}/auth/forgot-password"
+						"url": "{{api_url}}/auth/forgot-password"
 					}
 				},
 				{
@@ -111,9 +137,12 @@
 					"event": [{"listen": "test","script": {"exec": ["pm.test(\"Successful request\", function () { pm.expect(pm.response.code).to.be.oneOf([200, 201]); });"],"type": "text/javascript"}}],
 					"request": {
 						"method": "POST",
-						"header": [{"key": "Content-Type", "value": "application/json"}],
+						"header": [
+							{"key": "Content-Type", "value": "application/json"},
+							{"key": "x-api-key", "value": "{{api_key}}"}
+						],
 						"body": {"mode": "raw", "raw": "{\n    \"token\": \"reset_token_here\",\n    \"newPassword\": \"newpassword123\"\n}"},
-						"url": "{{base_url}}/auth/reset-password"
+						"url": "{{api_url}}/auth/reset-password"
 					}
 				},
 				{
@@ -121,9 +150,12 @@
 					"event": [{"listen": "test","script": {"exec": ["pm.test(\"Successful request\", function () { pm.expect(pm.response.code).to.be.oneOf([200, 201]); });"],"type": "text/javascript"}}],
 					"request": {
 						"method": "POST",
-						"header": [{"key": "Content-Type", "value": "application/json"}],
+						"header": [
+							{"key": "Content-Type", "value": "application/json"},
+							{"key": "x-api-key", "value": "{{api_key}}"}
+						],
 						"body": {"mode": "raw", "raw": "{\n    \"email\": \"test@google.com\",\n    \"oauthId\": \"google_12345\",\n    \"username\": \"Google User\",\n    \"pictureUrl\": \"http://example.com/pic.jpg\"\n}"},
-						"url": "{{base_url}}/auth/oauth/google"
+						"url": "{{api_url}}/auth/oauth/google"
 					}
 				},
 				{
@@ -132,7 +164,8 @@
 					"request": {
 						"auth": {"type": "bearer", "bearer": [{"key": "token", "value": "{{token}}", "type": "string"}]},
 						"method": "GET",
-						"url": "{{base_url}}/auth/me"
+						"header": [{"key": "x-api-key", "value": "{{api_key}}"}],
+						"url": "{{api_url}}/auth/me"
 					}
 				}
 			]
@@ -146,7 +179,8 @@
 					"request": {
 						"auth": {"type": "bearer", "bearer": [{"key": "token", "value": "{{token}}", "type": "string"}]},
 						"method": "GET",
-						"url": "{{base_url}}/users/me"
+						"header": [{"key": "x-api-key", "value": "{{api_key}}"}],
+						"url": "{{api_url}}/users/me"
 					}
 				},
 				{
@@ -155,9 +189,12 @@
 					"request": {
 						"auth": {"type": "bearer", "bearer": [{"key": "token", "value": "{{token}}", "type": "string"}]},
 						"method": "PATCH",
-						"header": [{"key": "Content-Type", "value": "application/json"}],
+						"header": [
+							{"key": "Content-Type", "value": "application/json"},
+							{"key": "x-api-key", "value": "{{api_key}}"}
+						],
 						"body": {"mode": "raw", "raw": "{\n    \"username\": \"new_name\",\n    \"profile_picture_url\": \"https://example.com/pic.jpg\"\n}"},
-						"url": "{{base_url}}/users/me"
+						"url": "{{api_url}}/users/me"
 					}
 				},
 				{
@@ -166,7 +203,8 @@
 					"request": {
 						"auth": {"type": "bearer", "bearer": [{"key": "token", "value": "{{token}}", "type": "string"}]},
 						"method": "GET",
-						"url": "{{base_url}}/users"
+						"header": [{"key": "x-api-key", "value": "{{api_key}}"}],
+						"url": "{{api_url}}/users"
 					}
 				},
 				{
@@ -175,9 +213,12 @@
 					"request": {
 						"auth": {"type": "bearer", "bearer": [{"key": "token", "value": "{{token}}", "type": "string"}]},
 						"method": "PATCH",
-						"header": [{"key": "Content-Type", "value": "application/json"}],
+						"header": [
+							{"key": "Content-Type", "value": "application/json"},
+							{"key": "x-api-key", "value": "{{api_key}}"}
+						],
 						"body": {"mode": "raw", "raw": "{\n    \"role\": \"ADMIN\"\n}"},
-						"url": "{{base_url}}/users/1/role"
+						"url": "{{api_url}}/users/1/role"
 					}
 				}
 			]
@@ -191,7 +232,8 @@
 					"request": {
 						"auth": {"type": "bearer", "bearer": [{"key": "token", "value": "{{token}}", "type": "string"}]},
 						"method": "GET",
-						"url": "{{base_url}}/admin/clients"
+						"header": [{"key": "x-api-key", "value": "{{api_key}}"}],
+						"url": "{{api_url}}/admin/clients"
 					}
 				},
 				{
@@ -200,9 +242,12 @@
 					"request": {
 						"auth": {"type": "bearer", "bearer": [{"key": "token", "value": "{{token}}", "type": "string"}]},
 						"method": "POST",
-						"header": [{"key": "Content-Type", "value": "application/json"}],
+						"header": [
+							{"key": "Content-Type", "value": "application/json"},
+							{"key": "x-api-key", "value": "{{api_key}}"}
+						],
 						"body": {"mode": "raw", "raw": "{\n    \"name\": \"New Client\"\n}"},
-						"url": "{{base_url}}/admin/clients"
+						"url": "{{api_url}}/admin/clients"
 					}
 				},
 				{
@@ -211,9 +256,12 @@
 					"request": {
 						"auth": {"type": "bearer", "bearer": [{"key": "token", "value": "{{token}}", "type": "string"}]},
 						"method": "PATCH",
-						"header": [{"key": "Content-Type", "value": "application/json"}],
+						"header": [
+							{"key": "Content-Type", "value": "application/json"},
+							{"key": "x-api-key", "value": "{{api_key}}"}
+						],
 						"body": {"mode": "raw", "raw": "{\n    \"name\": \"Updated Client\"\n}"},
-						"url": "{{base_url}}/admin/clients/1"
+						"url": "{{api_url}}/admin/clients/1"
 					}
 				},
 				{
@@ -222,7 +270,8 @@
 					"request": {
 						"auth": {"type": "bearer", "bearer": [{"key": "token", "value": "{{token}}", "type": "string"}]},
 						"method": "DELETE",
-						"url": "{{base_url}}/admin/clients/1"
+						"header": [{"key": "x-api-key", "value": "{{api_key}}"}],
+						"url": "{{api_url}}/admin/clients/1"
 					}
 				}
 			]
@@ -233,7 +282,11 @@
 				{
 					"name": "List Carousel (Public)",
 					"event": [{"listen": "test","script": {"exec": ["pm.test(\"Successful request\", function () { pm.expect(pm.response.code).to.be.oneOf([200]); });"],"type": "text/javascript"}}],
-					"request": { "method": "GET", "url": "{{base_url}}/carousel" }
+					"request": { 
+						"method": "GET", 
+						"header": [{"key": "x-api-key", "value": "{{api_key}}"}],
+						"url": "{{api_url}}/carousel" 
+					}
 				},
 				{
 					"name": "Create Carousel (Admin)",
@@ -241,9 +294,12 @@
 					"request": {
 						"auth": {"type": "bearer", "bearer": [{"key": "token", "value": "{{token}}", "type": "string"}]},
 						"method": "POST",
-						"header": [{"key": "Content-Type", "value": "application/json"}],
+						"header": [
+							{"key": "Content-Type", "value": "application/json"},
+							{"key": "x-api-key", "value": "{{api_key}}"}
+						],
 						"body": {"mode": "raw", "raw": "{\n    \"image_url\": \"https://example.com/banner.png\"\n}"},
-						"url": "{{base_url}}/carousel"
+						"url": "{{api_url}}/carousel"
 					}
 				},
 				{
@@ -252,9 +308,12 @@
 					"request": {
 						"auth": {"type": "bearer", "bearer": [{"key": "token", "value": "{{token}}", "type": "string"}]},
 						"method": "PUT",
-						"header": [{"key": "Content-Type", "value": "application/json"}],
+						"header": [
+							{"key": "Content-Type", "value": "application/json"},
+							{"key": "x-api-key", "value": "{{api_key}}"}
+						],
 						"body": {"mode": "raw", "raw": "{\n    \"image_url\": \"https://example.com/banner-updated.png\"\n}"},
-						"url": "{{base_url}}/carousel/1"
+						"url": "{{api_url}}/carousel/1"
 					}
 				},
 				{
@@ -263,7 +322,8 @@
 					"request": {
 						"auth": {"type": "bearer", "bearer": [{"key": "token", "value": "{{token}}", "type": "string"}]},
 						"method": "DELETE",
-						"url": "{{base_url}}/carousel/1"
+						"header": [{"key": "x-api-key", "value": "{{api_key}}"}],
+						"url": "{{api_url}}/carousel/1"
 					}
 				}
 			]
@@ -274,7 +334,11 @@
 				{
 					"name": "Get Hero (Public)",
 					"event": [{"listen": "test","script": {"exec": ["pm.test(\"Successful request\", function () { pm.expect(pm.response.code).to.be.oneOf([200]); });"],"type": "text/javascript"}}],
-					"request": { "method": "GET", "url": "{{base_url}}/homepage/hero" }
+					"request": { 
+						"method": "GET", 
+						"header": [{"key": "x-api-key", "value": "{{api_key}}"}],
+						"url": "{{api_url}}/homepage/hero" 
+					}
 				},
 				{
 					"name": "Update Hero (Admin)",
@@ -282,15 +346,22 @@
 					"request": {
 						"auth": {"type": "bearer", "bearer": [{"key": "token", "value": "{{token}}", "type": "string"}]},
 						"method": "PUT",
-						"header": [{"key": "Content-Type", "value": "application/json"}],
+						"header": [
+							{"key": "Content-Type", "value": "application/json"},
+							{"key": "x-api-key", "value": "{{api_key}}"}
+						],
 						"body": {"mode": "raw", "raw": "{\n    \"title\": \"New Hero Title\"\n}"},
-						"url": "{{base_url}}/homepage/hero"
+						"url": "{{api_url}}/homepage/hero"
 					}
 				},
 				{
 					"name": "Get Section (Public)",
 					"event": [{"listen": "test","script": {"exec": ["pm.test(\"Successful request\", function () { pm.expect(pm.response.code).to.be.oneOf([200]); });"],"type": "text/javascript"}}],
-					"request": { "method": "GET", "url": "{{base_url}}/homepage/about" }
+					"request": { 
+						"method": "GET", 
+						"header": [{"key": "x-api-key", "value": "{{api_key}}"}],
+						"url": "{{api_url}}/homepage/about" 
+					}
 				},
 				{
 					"name": "Update Section (Admin)",
@@ -298,23 +369,26 @@
 					"request": {
 						"auth": {"type": "bearer", "bearer": [{"key": "token", "value": "{{token}}", "type": "string"}]},
 						"method": "PUT",
-						"header": [{"key": "Content-Type", "value": "application/json"}],
+						"header": [
+							{"key": "Content-Type", "value": "application/json"},
+							{"key": "x-api-key", "value": "{{api_key}}"}
+						],
 						"body": {"mode": "raw", "raw": "{\n    \"content\": \"Updated content\"\n}"},
-						"url": "{{base_url}}/homepage/about"
+						"url": "{{api_url}}/homepage/about"
 					}
 				}
 			]
 		},
 		{
-			"name": "6. Download (API Key)",
+			"name": "6. Download",
 			"item": [
 				{
 					"name": "Download Windows",
 					"event": [{"listen": "test","script": {"exec": ["pm.test(\"Successful request\", function () { pm.expect(pm.response.code).to.be.oneOf([200, 401]); });"],"type": "text/javascript"}}],
 					"request": {
 						"method": "GET",
-						"header": [{"key": "x-api-key", "value": "windows-key-123"}],
-						"url": "{{base_url}}/download/windows"
+						"header": [{"key": "x-api-key", "value": "{{api_key}}"}],
+						"url": "{{api_url}}/download/windows"
 					}
 				},
 				{
@@ -322,8 +396,8 @@
 					"event": [{"listen": "test","script": {"exec": ["pm.test(\"Successful request\", function () { pm.expect(pm.response.code).to.be.oneOf([200, 401]); });"],"type": "text/javascript"}}],
 					"request": {
 						"method": "GET",
-						"header": [{"key": "x-api-key", "value": "android-key-123"}],
-						"url": "{{base_url}}/download/android"
+						"header": [{"key": "x-api-key", "value": "{{api_key}}"}],
+						"url": "{{api_url}}/download/android"
 					}
 				}
 			]
@@ -334,22 +408,38 @@
 				{
 					"name": "Find User",
 					"event": [{"listen": "test","script": {"exec": ["pm.test(\"Successful request\", function () { pm.expect(pm.response.code).to.be.oneOf([200, 404]); });"],"type": "text/javascript"}}],
-					"request": { "method": "POST", "url": "{{base_url}}/internal/find-user" }
+					"request": { 
+						"method": "POST", 
+						"header": [{"key": "x-api-key", "value": "{{api_key}}"}],
+						"url": "{{api_url}}/internal/find-user" 
+					}
 				},
 				{
 					"name": "Delete User",
 					"event": [{"listen": "test","script": {"exec": ["pm.test(\"Successful request\", function () { pm.expect(pm.response.code).to.be.oneOf([200, 204]); });"],"type": "text/javascript"}}],
-					"request": { "method": "POST", "url": "{{base_url}}/internal/delete-user" }
+					"request": { 
+						"method": "POST", 
+						"header": [{"key": "x-api-key", "value": "{{api_key}}"}],
+						"url": "{{api_url}}/internal/delete-user" 
+					}
 				},
 				{
 					"name": "List Users (Admin Internal)",
 					"event": [{"listen": "test","script": {"exec": ["pm.test(\"Successful request\", function () { pm.expect(pm.response.code).to.be.oneOf([200]); });"],"type": "text/javascript"}}],
-					"request": { "method": "GET", "url": "{{base_url}}/internal/admin/users" }
+					"request": { 
+						"method": "GET", 
+						"header": [{"key": "x-api-key", "value": "{{api_key}}"}],
+						"url": "{{api_url}}/internal/admin/users" 
+					}
 				},
 				{
 					"name": "Get Verification Token",
 					"event": [{"listen": "test","script": {"exec": ["pm.test(\"Successful request\", function () { pm.expect(pm.response.code).to.be.oneOf([200, 404]); });"],"type": "text/javascript"}}],
-					"request": { "method": "GET", "url": "{{base_url}}/internal/verification-token/test@example.com" }
+					"request": { 
+						"method": "GET", 
+						"header": [{"key": "x-api-key", "value": "{{api_key}}"}],
+						"url": "{{api_url}}/internal/verification-token/test@example.com" 
+					}
 				}
 			]
 		}

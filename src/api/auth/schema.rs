@@ -1,24 +1,25 @@
 use serde::{Deserialize, Serialize};
 
-// Frontend ส่งมาแค่ email
 #[derive(Debug, Serialize, Deserialize)]
 pub struct RegisterBody {
     pub email: String,
 }
 
-// สำหรับหน้ากรอกรหัสยืนยัน (check.html)
 #[derive(Debug, Serialize, Deserialize)]
 pub struct VerifyCodeBody {
     pub email: String,
     pub code: String,
 }
 
-// สำหรับหน้าตั้งชื่อและรหัสผ่าน (form.html)
+// เพิ่มการตั้งค่า tel/ชื่อ ได้ตั้งแต่ตอนสมัคร
 #[derive(Debug, Serialize, Deserialize)]
 pub struct CompleteProfileBody {
     pub email: String,
     pub username: String,
     pub password: String,
+    pub tel: Option<String>,
+    pub first_name: Option<String>,
+    pub last_name: Option<String>,
 }
 
 #[derive(Debug, Serialize, Deserialize)]
@@ -27,7 +28,6 @@ pub struct LoginBody {
     pub password: String,
 }
 
-// รองรับ OAuth จาก Frontend (camelCase)
 #[derive(Debug, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub struct GoogleOAuthBody {
@@ -37,13 +37,11 @@ pub struct GoogleOAuthBody {
     pub picture_url: Option<String>,
 }
 
-// สำหรับลืมรหัสผ่าน
 #[derive(Debug, Serialize, Deserialize)]
 pub struct ForgotPasswordBody {
     pub email: String,
 }
 
-// สำหรับตั้งรหัสผ่านใหม่ (reset.html)
 #[derive(Debug, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub struct ResetPasswordBody {
@@ -60,9 +58,14 @@ pub struct AuthResponse {
 #[derive(Debug, Serialize, Deserialize)]
 pub struct UserResponse {
     pub id: i32,
+    pub user_id: String,
     pub email: String,
+    pub tel: Option<String>,
     pub username: Option<String>,
+    pub first_name: Option<String>,
+    pub last_name: Option<String>,
     pub role: String,
+    pub status: String,
     pub profile_picture_url: Option<String>,
     pub is_email_verified: bool,
 }

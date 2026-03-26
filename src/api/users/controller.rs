@@ -12,12 +12,7 @@ use crate::core::middleware::jwt_auth::AuthUser;
 use super::schema::{UpdateMeBody, UpdateRoleBody};
 use super::service;
 
-// Helper type alias
 type AppState = State<(DB, Env)>;
-
-// --------------------
-// pure-api1 compatible
-// --------------------
 
 // GET /api/users/me
 pub async fn get_me(
@@ -38,10 +33,6 @@ pub async fn patch_me(
     Ok(Json(json!({ "ok": true, "data": u })))
 }
 
-// --------------------
-// Admin (existing)
-// --------------------
-
 // GET /api/users
 pub async fn list_users(State((db, _)): AppState) -> Result<Json<Value>, AppError> {
     let users = service::list_users(&db).await?;
@@ -54,6 +45,7 @@ pub async fn update_role(
     Path(id): Path<i32>,
     Json(body): Json<UpdateRoleBody>,
 ) -> Result<Json<Value>, AppError> {
-    let user = service::update_role(&db, id, body.role).await?;
+    // ส่งผ่านข้อมูล status ที่เป็น Option ได้เลย
+    let user = service::update_role(&db, id, body.role, body.status).await?;
     Ok(Json(json!({ "ok": true, "data": user })))
 }

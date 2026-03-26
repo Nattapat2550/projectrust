@@ -1,33 +1,41 @@
 -- =======================================================
 --  DATABASE SCHEMA สำหรับ pure-api (PostgreSQL)
 -- =======================================================
+-- =======================================================
+--  DATABASE SCHEMA สำหรับ pure-api (PostgreSQL)
+-- =======================================================
 
--- (ใช้ extension นี้ได้ถ้าต้องการ uuid ฯลฯ แต่ตอนนี้ยังไม่จำเป็น)
--- CREATE EXTENSION IF NOT EXISTS "uuid-ossp";
+-- (ใช้ extension นี้ได้ถ้าต้องการ uuid ฯลฯ)
+CREATE EXTENSION IF NOT EXISTS "uuid-ossp";
 
 -- -------------------------------------------------------
 -- 1) USERS
 -- -------------------------------------------------------
 CREATE TABLE IF NOT EXISTS users (
   id                   SERIAL PRIMARY KEY,
+  user_id              UUID UNIQUE NOT NULL DEFAULT gen_random_uuid(), -- สุ่ม UUID v4 อัตโนมัติ
   username             VARCHAR(50) UNIQUE,
   email                VARCHAR(255) UNIQUE NOT NULL,
+  tel                  VARCHAR(20) UNIQUE,                             -- เบอร์โทร (UNIQUE)
+  first_name           VARCHAR(100),                                   -- ชื่อจริง
+  last_name            VARCHAR(100),                                   -- นามสกุลจริง
   password_hash        VARCHAR(255),
   role                 VARCHAR(10) NOT NULL DEFAULT 'user',
+  status               VARCHAR(20) NOT NULL DEFAULT 'active',          -- สถานะบัญชี
   profile_picture_url  TEXT DEFAULT 'assets/user.png',
   is_email_verified    BOOLEAN NOT NULL DEFAULT FALSE,
   oauth_provider       VARCHAR(20),
   oauth_id             VARCHAR(255),
+  last_login_at        TIMESTAMPTZ,                                    -- เวลาล็อกอินล่าสุด
   created_at           TIMESTAMPTZ NOT NULL DEFAULT NOW(),
   updated_at           TIMESTAMPTZ NOT NULL DEFAULT NOW(),
-  CONSTRAINT chk_role CHECK (role IN ('user','admin'))
+  CONSTRAINT chk_role CHECK (role IN ('user','admin')),
+  CONSTRAINT chk_status CHECK (status IN ('active', 'suspended', 'banned', 'deleted')) -- เพิ่ม deleted
 );
 
-CREATE INDEX IF NOT EXISTS idx_users_email
-  ON users(email);
-
-CREATE INDEX IF NOT EXISTS idx_users_oauth
-  ON users(oauth_provider, oauth_id);
+CREATE INDEX IF NOT EXISTS idx_users_email ON users(email);
+CREATE INDEX IF NOT EXISTS idx_users_oauth ON users(oauth_provider, oauth_id);
+CREATE INDEX IF NOT EXISTS idx_users_user_id ON users(user_id);
 
 
 -- -------------------------------------------------------
@@ -40,9 +48,7 @@ CREATE TABLE IF NOT EXISTS verification_codes (
   expires_at  TIMESTAMPTZ NOT NULL
 );
 
-CREATE INDEX IF NOT EXISTS idx_verif_user_exp
-  ON verification_codes(user_id, expires_at);
-
+CREATE INDEX IF NOT EXISTS idx_verif_user_exp ON verification_codes(user_id, expires_at);
 
 -- -------------------------------------------------------
 -- 3) PASSWORD RESET TOKENS (ลืมรหัสผ่าน)
@@ -56,13 +62,10 @@ CREATE TABLE IF NOT EXISTS password_reset_tokens (
   created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
 );
 
-CREATE INDEX IF NOT EXISTS idx_reset_user_exp
-  ON password_reset_tokens(user_id, is_used, expires_at);
-
+CREATE INDEX IF NOT EXISTS idx_reset_user_exp ON password_reset_tokens(user_id, is_used, expires_at);
 
 -- -------------------------------------------------------
--- 4) HOMEPAGE CONTENT (section ต่าง ๆ หน้าแรก)
---    ใช้กับ /api/homepage
+-- 4) HOMEPAGE CONTENT
 -- -------------------------------------------------------
 CREATE TABLE IF NOT EXISTS homepage_content (
   section_name VARCHAR(50) PRIMARY KEY,
@@ -70,10 +73,8 @@ CREATE TABLE IF NOT EXISTS homepage_content (
   updated_at   TIMESTAMPTZ NOT NULL DEFAULT NOW()
 );
 
-
 -- -------------------------------------------------------
--- 5) CAROUSEL ITEMS (สไลด์บนหน้า home)
---    ใช้กับ /api/carousel และ /api/admin/carousel
+-- 5) CAROUSEL ITEMS
 -- -------------------------------------------------------
 CREATE TABLE IF NOT EXISTS carousel_items (
   id           SERIAL PRIMARY KEY,
@@ -81,30 +82,50 @@ CREATE TABLE IF NOT EXISTS carousel_items (
   title        VARCHAR(255),
   subtitle     VARCHAR(255),
   description  TEXT,
-  image_dataurl TEXT NOT NULL, -- เก็บเป็น data URL (base64)
+  image_dataurl TEXT NOT NULL,
   created_at   TIMESTAMPTZ NOT NULL DEFAULT NOW(),
   updated_at   TIMESTAMPTZ NOT NULL DEFAULT NOW()
 );
 
-CREATE INDEX IF NOT EXISTS idx_carousel_item_index
-  ON carousel_items(item_index, id);
-
+CREATE INDEX IF NOT EXISTS idx_carousel_item_index ON carousel_items(item_index, id);
 
 -- -------------------------------------------------------
--- 6) API CLIENTS (แยก API key ของแต่ละ client)
---    ใช้ร่วมกับ middleware apiKeyAuth.ts
+-- 6) API CLIENTS
 -- -------------------------------------------------------
 CREATE TABLE IF NOT EXISTS api_clients (
   id         SERIAL PRIMARY KEY,
-  name       VARCHAR(100) NOT NULL,   -- เช่น 'react-web', 'android-app'
+  name       VARCHAR(100) NOT NULL,
   api_key    VARCHAR(255) NOT NULL UNIQUE,
   is_active  BOOLEAN NOT NULL DEFAULT TRUE,
   created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
 );
 
-CREATE INDEX IF NOT EXISTS idx_api_clients_active
-  ON api_clients(is_active);
+CREATE INDEX IF NOT EXISTS idx_api_clients_active ON api_clients(is_active);
 
+-- =======================================================
+-- 7) BACKGROUND FUNCTIONS (ฟังก์ชันจัดการระบบ)
+-- =======================================================
+
+-- สร้างฟังก์ชันสำหรับลบผู้ใช้ที่ปิดบัญชีเกิน 30 วันแบบถาวร
+CREATE OR REPLACE FUNCTION hard_delete_expired_users()
+RETURNS void AS $$
+BEGIN
+  DELETE FROM users
+  WHERE status = 'deleted'
+    AND updated_at <= NOW() - INTERVAL '30 days';
+END;
+$$ LANGUAGE plpgsql;
+
+-- 2. เปิดใช้งาน Extension สำหรับระบบตั้งเวลา
+CREATE EXTENSION IF NOT EXISTS pg_cron;
+
+-- 3. สั่งตั้งเวลาให้รันฟังก์ชันนี้ "ทุกๆ เที่ยงคืน" (00:00) ของทุกวัน
+-- รูปแบบ cron: 'นาที ชั่วโมง วัน เดือน วันในสัปดาห์'
+SELECT cron.schedule(
+    'cleanup_expired_deleted_users', -- ชื่อ Job
+    '0 0 * * *',                     -- รันทุกวันเวลา 00:00 น.
+    'SELECT hard_delete_expired_users();'
+);
 
 -- -------------------------------------------------------
 -- (OPTIONAL) SEED ข้อมูลเริ่มต้น
