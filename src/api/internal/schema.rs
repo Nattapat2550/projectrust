@@ -157,9 +157,7 @@ pub struct HomepageUpdateBody {
 #[derive(Debug, Serialize)]
 pub struct CarouselItem {
     pub id: i32,
-    #[serde(rename = "itemIndex")]
     pub item_index: i32,
-    #[serde(rename = "imageDataUrl")]
     pub image_dataurl: String,
     pub title: Option<String>,
     pub subtitle: Option<String>,
