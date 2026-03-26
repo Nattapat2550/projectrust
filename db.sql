@@ -102,31 +102,6 @@ CREATE TABLE IF NOT EXISTS api_clients (
 
 CREATE INDEX IF NOT EXISTS idx_api_clients_active ON api_clients(is_active);
 
--- =======================================================
--- 7) BACKGROUND FUNCTIONS (ฟังก์ชันจัดการระบบ)
--- =======================================================
-
--- สร้างฟังก์ชันสำหรับลบผู้ใช้ที่ปิดบัญชีเกิน 30 วันแบบถาวร
-CREATE OR REPLACE FUNCTION hard_delete_expired_users()
-RETURNS void AS $$
-BEGIN
-  DELETE FROM users
-  WHERE status = 'deleted'
-    AND updated_at <= NOW() - INTERVAL '30 days';
-END;
-$$ LANGUAGE plpgsql;
-
--- 2. เปิดใช้งาน Extension สำหรับระบบตั้งเวลา
-CREATE EXTENSION IF NOT EXISTS pg_cron;
-
--- 3. สั่งตั้งเวลาให้รันฟังก์ชันนี้ "ทุกๆ เที่ยงคืน" (00:00) ของทุกวัน
--- รูปแบบ cron: 'นาที ชั่วโมง วัน เดือน วันในสัปดาห์'
-SELECT cron.schedule(
-    'cleanup_expired_deleted_users', -- ชื่อ Job
-    '0 0 * * *',                     -- รันทุกวันเวลา 00:00 น.
-    'SELECT hard_delete_expired_users();'
-);
-
 -- -------------------------------------------------------
 -- (OPTIONAL) SEED ข้อมูลเริ่มต้น
 -- -------------------------------------------------------

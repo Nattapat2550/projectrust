@@ -5,7 +5,9 @@ mod core;
 use config::env::Env;
 use config::db::DB;
 use std::net::SocketAddr;
+use std::time::Duration;
 use tokio::net::TcpListener;
+use tokio::time;
 use tower_http::trace::TraceLayer;
 
 #[tokio::main]
@@ -27,6 +29,10 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
         }
     };
 
+    // 🌟 3.5 สั่งให้ระบบทำความสะอาดข้อมูลเริ่มทำงาน (Lazy Cleanup)
+    // ส่ง clone ของ connection pool ไปทำงานเบื้องหลัง
+    start_cleanup_job(db.pool.clone());
+
     // 4. Setup Router
     let app = api::router(db, env.clone())
         .layer(TraceLayer::new_for_http());
@@ -38,13 +44,41 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
     tracing::info!("🚀 Server running on http://{}", addr);
 
     // 6. Run Server with Graceful Shutdown
-    // ✅ แก้ไข: เพิ่ม .into_make_service_with_connect_info::<SocketAddr>() 
+    // ✅ เพิ่ม .into_make_service_with_connect_info::<SocketAddr>() 
     // เพื่อให้ GovernorLayer (Rate Limit) สามารถหา IP Address เจอและไม่พ่น Error 500
     axum::serve(listener, app.into_make_service_with_connect_info::<SocketAddr>())
         .with_graceful_shutdown(shutdown_signal())
         .await?;
 
     Ok(())
+}
+
+// 🌟 ฟังก์ชันจัดการทำความสะอาดข้อมูลเบื้องหลัง
+fn start_cleanup_job(pool: sqlx::PgPool) {
+    tokio::spawn(async move {
+        // ตั้งเวลาให้ทำงานทุกๆ 24 ชั่วโมง (24 * 60 * 60 วินาที)
+        let mut interval = time::interval(Duration::from_secs(24 * 60 * 60));
+        
+        loop {
+            interval.tick().await;
+            tracing::info!("⏳ [Scheduler] Checking for expired deleted users...");
+
+            let query = r#"
+                DELETE FROM users
+                WHERE status = 'deleted'
+                  AND updated_at <= NOW() - INTERVAL '30 days';
+            "#;
+
+            match sqlx::query(query).execute(&pool).await {
+                Ok(result) => {
+                    if result.rows_affected() > 0 {
+                        tracing::info!("✅ [Scheduler] Permanently deleted {} expired user(s).", result.rows_affected());
+                    }
+                }
+                Err(e) => tracing::error!("❌ [Scheduler] Failed to clean up expired users: {}", e),
+            }
+        }
+    });
 }
 
 // ฟังก์ชันดักจับ Signal (Ctrl+C) เพื่อปิด Server อย่างปลอดภัย
