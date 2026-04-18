@@ -123,7 +123,8 @@ VALUES
   ('windows-app',    'windows-key-123'),
   ('docker-worker',  'docker-key-123'),
   ('golang-web',     'golang-key-123'),
-  ('concert-test',   'concert-key-123')
+  ('concert-test',   'concert-key-123'),
+  ('mall-test',      'mall-key-123')
 ON CONFLICT (api_key) DO NOTHING;
 
 
