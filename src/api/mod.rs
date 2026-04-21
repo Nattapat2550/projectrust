@@ -46,11 +46,19 @@ pub fn router(db: DB, env: Env) -> Router {
         .layer(SetResponseHeaderLayer::overriding(
             header::STRICT_TRANSPORT_SECURITY,
             HeaderValue::from_static("max-age=15552000; includeSubDomains"),
+        ))
+        .layer(SetResponseHeaderLayer::overriding(
+            header::CACHE_CONTROL,
+            HeaderValue::from_static("no-cache, no-store, must-revalidate"),
+        ))
+        .layer(SetResponseHeaderLayer::overriding(
+            header::PRAGMA,
+            HeaderValue::from_static("no-cache"),
         ));
 
     // --- 2. CORS Setup ---
     let cors_layer = if env.allowed_origins.is_empty() {
-        CorsLayer::permissive()
+        CorsLayer::new()
     } else {
         let origins: Vec<HeaderValue> = env
             .allowed_origins
@@ -83,7 +91,6 @@ pub fn router(db: DB, env: Env) -> Router {
         });
 
     // Protected User Routes (Admin)
-    // ✅ แก้ไข: ส่ง env.clone() ไปด้วย และไม่ต้องใส่ .route_layer ซ้ำ เพราะใน users::routes ใส่ไว้แล้ว
     let users_routes = users::routes::routes(db.clone(), env.clone());
 
     // Protected Admin Routes
