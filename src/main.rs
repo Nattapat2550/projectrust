@@ -30,8 +30,14 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
     };
 
     // 🌟 3.5 สั่งให้ระบบทำความสะอาดข้อมูลเริ่มทำงาน (Lazy Cleanup)
-    // ส่ง clone ของ connection pool ไปทำงานเบื้องหลัง
-    start_cleanup_job(db.pool.clone());
+    // ตรวจสอบ Environment Variable เพื่อให้รองรับทั้ง Render และ Serverless (Google Cloud Run)
+    // - บน Render: ไม่ต้องตั้งค่าใดๆ ตัวแปรจะเป็น false โค้ดจะรัน Background Job ตามปกติเหมือนเดิม 100%
+    // - บน Cloud Run: ให้ตั้งค่า SERVERLESS_MODE=true ระบบจะปิดการรัน Loop ในเบื้องหลังนี้ เพื่อไม่ให้เกิดปัญหากับสถาปัตยกรรม Serverless
+    if std::env::var("SERVERLESS_MODE").unwrap_or_else(|_| "false".to_string()) != "true" {
+        start_cleanup_job(db.pool.clone());
+    } else {
+        tracing::info!("ℹ️ [Scheduler] Running in Serverless mode. Background interval cleanup is disabled (Should be handled via Cloud Scheduler API endpoint instead).");
+    }
 
     // 4. Setup Router
     let app = api::router(db, env.clone())
