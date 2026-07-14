@@ -1,5 +1,5 @@
 # Stage 1: Builder
-FROM rust:1.80-slim-bookworm AS builder
+FROM rust:slim-bookworm AS builder
 WORKDIR /app
 
 # ติดตั้ง System dependencies ที่จำเป็นสำหรับการ Compile (เช่น OpenSSL)
