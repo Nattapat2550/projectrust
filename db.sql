@@ -1,4 +1,30 @@
 -- =======================================================
+--  UUIDv7 Generator Function
+-- =======================================================
+CREATE OR REPLACE FUNCTION uuid_generate_v7()
+RETURNS uuid
+AS $$
+DECLARE
+  v_unix_t bigint;
+  v_rand_a bigint;
+  v_rand_b bigint;
+  v_rand_c bigint;
+BEGIN
+  v_unix_t := (extract(epoch from clock_timestamp()) * 1000)::bigint;
+  v_rand_a := (random() * 4095)::bigint;
+  v_rand_b := (random() * 4095)::bigint;
+  v_rand_c := (random() * 281474976710655)::bigint;
+  
+  RETURN (
+    lpad(to_hex(v_unix_t), 12, '0') ||
+    '7' || lpad(to_hex(v_rand_a), 3, '0') ||
+    to_hex(8 + (random() * 3)::int) || lpad(to_hex(v_rand_b), 3, '0') ||
+    lpad(to_hex(v_rand_c), 12, '0')
+  )::uuid;
+END;
+$$ LANGUAGE plpgsql VOLATILE;
+
+-- =======================================================
 --  DATABASE SCHEMA สำหรับ pure-api (PostgreSQL)
 --  ✅ UUID v7 เป็น Primary Key ทุกตาราง
 -- =======================================================
@@ -7,7 +33,7 @@
 -- 1) USERS
 -- -------------------------------------------------------
 CREATE TABLE IF NOT EXISTS users (
-  id                   UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  id                   UUID PRIMARY KEY DEFAULT uuid_generate_v7(),
   username             VARCHAR(50) UNIQUE,
   email                VARCHAR(255) UNIQUE NOT NULL,
   tel                  VARCHAR(20) UNIQUE,                             -- เบอร์โทร (UNIQUE)
@@ -35,7 +61,7 @@ CREATE INDEX IF NOT EXISTS idx_users_oauth ON users(oauth_provider, oauth_id);
 -- 2) VERIFICATION CODES (ยืนยันอีเมล)
 -- -------------------------------------------------------
 CREATE TABLE IF NOT EXISTS verification_codes (
-  id          UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  id          UUID PRIMARY KEY DEFAULT uuid_generate_v7(),
   user_id     UUID NOT NULL REFERENCES users(id) ON DELETE CASCADE,
   code        VARCHAR(6) NOT NULL,
   expires_at  TIMESTAMPTZ NOT NULL
@@ -47,7 +73,7 @@ CREATE INDEX IF NOT EXISTS idx_verif_user_exp ON verification_codes(user_id, exp
 -- 3) PASSWORD RESET TOKENS (ลืมรหัสผ่าน)
 -- -------------------------------------------------------
 CREATE TABLE IF NOT EXISTS password_reset_tokens (
-  id         UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  id         UUID PRIMARY KEY DEFAULT uuid_generate_v7(),
   user_id    UUID NOT NULL REFERENCES users(id) ON DELETE CASCADE,
   token      VARCHAR(255) UNIQUE NOT NULL,
   expires_at TIMESTAMPTZ NOT NULL,
@@ -70,7 +96,7 @@ CREATE TABLE IF NOT EXISTS homepage_content (
 -- 5) CAROUSEL ITEMS
 -- -------------------------------------------------------
 CREATE TABLE IF NOT EXISTS carousel_items (
-  id           UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  id           UUID PRIMARY KEY DEFAULT uuid_generate_v7(),
   item_index   INTEGER NOT NULL DEFAULT 0,
   title        VARCHAR(255),
   subtitle     VARCHAR(255),
@@ -86,7 +112,7 @@ CREATE INDEX IF NOT EXISTS idx_carousel_item_index ON carousel_items(item_index,
 -- 6) API CLIENTS
 -- -------------------------------------------------------
 CREATE TABLE IF NOT EXISTS api_clients (
-  id         UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  id         UUID PRIMARY KEY DEFAULT uuid_generate_v7(),
   name       VARCHAR(100) NOT NULL,
   api_key    VARCHAR(255) NOT NULL UNIQUE,
   is_active  BOOLEAN NOT NULL DEFAULT TRUE,
