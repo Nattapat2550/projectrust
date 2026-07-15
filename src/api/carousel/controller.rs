@@ -22,17 +22,17 @@ pub async fn create(
 
 pub async fn update(
     State(db): State<DB>,
-    Path(id): Path<i32>,
+    Path(id): Path<String>,
     Json(body): Json<UpdateCarouselBody>,
 ) -> Result<Json<serde_json::Value>, AppError> {
-    let out = service::update(&db, id, body).await?;
+    let out = service::update(&db, &id, body).await?;
     Ok(Json(json!({ "ok": true, "data": out })))
 }
 
 pub async fn delete(
     State(db): State<DB>,
-    Path(id): Path<i32>,
+    Path(id): Path<String>,
 ) -> Result<Json<serde_json::Value>, AppError> {
-    service::delete(&db, id).await?;
+    service::delete(&db, &id).await?;
     Ok(Json(json!({ "ok": true })))
 }

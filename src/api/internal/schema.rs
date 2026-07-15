@@ -5,7 +5,7 @@ use serde::{Deserialize, Serialize};
 #[derive(Debug, Deserialize)]
 pub struct FindUserBody {
     pub email: Option<String>,
-    pub id: Option<i32>,
+    pub id: Option<String>,
     pub provider: Option<String>,
     #[serde(alias = "oauthId", alias = "oauth_id")]
     pub oauth_id: Option<String>,
@@ -13,8 +13,7 @@ pub struct FindUserBody {
 
 #[derive(Debug, Serialize)]
 pub struct UserLite {
-    pub id: i32,
-    pub user_id: Option<String>,
+    pub id: String,
     pub email: String,
     pub username: Option<String>,
     pub first_name: Option<String>,
@@ -61,7 +60,7 @@ pub struct SetUsernamePasswordBody {
 // เอา rename_all ออก และดักจับทุกรูปแบบ
 #[derive(Debug, Deserialize)]
 pub struct UpdateUserBody {
-    pub id: i32,
+    pub id: String,
     pub username: Option<String>,
     #[serde(alias = "profilePictureUrl", alias = "profile_picture_url")]
     pub profile_picture_url: Option<String>,
@@ -81,13 +80,13 @@ pub struct UpdateUserBody {
 
 #[derive(Debug, Deserialize)]
 pub struct DeleteUserBody {
-    pub id: i32,
+    pub id: String,
 }
 
 #[derive(Debug, Deserialize)]
 pub struct StoreVerificationCodeBody {
     #[serde(alias = "userId", alias = "user_id")]
-    pub user_id: i32,
+    pub user_id: String,
     pub code: String,
     #[serde(alias = "expiresAt", alias = "expires_at")]
     pub expires_at: String,
@@ -103,7 +102,7 @@ pub struct VerifyCodeBody {
 pub struct VerifyCodeResponse {
     pub ok: bool,
     #[serde(rename = "userId")]
-    pub user_id: i32,
+    pub user_id: Option<String>,
     pub reason: Option<String>,
 }
 
@@ -123,14 +122,14 @@ pub struct ConsumeResetTokenBody {
 #[derive(Debug, Deserialize)]
 pub struct SetPasswordBody {
     #[serde(alias = "userId", alias = "user_id")]
-    pub user_id: i32,
+    pub user_id: String,
     #[serde(alias = "newPassword", alias = "new_password")]
     pub new_password: String,
 }
 
 #[derive(Debug, Serialize)]
 pub struct ClientRow {
-    pub id: i32,
+    pub id: String,
     pub name: String,
     #[serde(rename = "apiKey")]
     pub api_key: String,
@@ -156,7 +155,7 @@ pub struct HomepageUpdateBody {
 // --- Carousel ---
 #[derive(Debug, Serialize)]
 pub struct CarouselItem {
-    pub id: i32,
+    pub id: String,
     pub item_index: i32,
     pub image_dataurl: String,
     pub title: Option<String>,
@@ -179,7 +178,7 @@ pub struct CreateCarouselBody {
 
 #[derive(Debug, Deserialize)]
 pub struct UpdateCarouselBody {
-    pub id: i32,
+    pub id: String,
     #[serde(alias = "image_url", alias = "image_dataurl", alias = "imageDataUrl")]
     pub image_url: Option<String>,
     #[serde(alias = "itemIndex", alias = "item_index")]
@@ -193,5 +192,5 @@ pub struct UpdateCarouselBody {
 
 #[derive(Debug, Deserialize)]
 pub struct DeleteCarouselBody {
-    pub id: i32,
+    pub id: String,
 }

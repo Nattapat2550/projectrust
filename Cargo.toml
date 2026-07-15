@@ -30,6 +30,7 @@ thiserror = "1.0"
 sha2 = "0.10"
 hex = "0.4"
 rand = "0.8"
+uuid = { version = "1", features = ["v7", "serde"] }
 
 # 🌟 เพิ่ม Profile สำหรับโหมด Release เพื่อรีด Performance สูงสุด
 [profile.release]

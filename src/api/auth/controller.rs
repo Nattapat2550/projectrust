@@ -49,6 +49,6 @@ pub async fn me(
     let user_jwt = req.extensions().get::<crate::core::middleware::jwt_auth::AuthUser>()
         .ok_or_else(|| AppError::unauthorized("JWT_MISSING", "Missing auth user"))?;
     
-    let user_data = service::get_me(&db, user_jwt.id).await?;
+    let user_data = service::get_me(&db, user_jwt.id.clone()).await?;
     Ok(Json(json!({ "ok": true, "data": user_data })))
 }

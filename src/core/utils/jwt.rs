@@ -6,9 +6,8 @@ use crate::config::env::{Env, ENV};
 
 #[derive(Debug, Serialize, Deserialize, Clone)]
 pub struct Claims {
-    pub sub: i32,
+    pub sub: String,
     pub email: String,
-    // pub name: String, // ❌ ลบออก (pure-api ไม่มี field นี้ใน token)
     pub role: String,
     pub exp: usize,
     pub iat: usize,
@@ -34,9 +33,8 @@ fn exp_from_env(env: &Env) -> usize {
 }
 
 pub fn sign(
-    user_id: i32,
+    user_id: String,
     email: String,
-    // name: String, // ❌ ลบออก
     role: String,
     env: &Env,
 ) -> Result<String, jsonwebtoken::errors::Error> {
@@ -46,7 +44,6 @@ pub fn sign(
     let claims = Claims {
         sub: user_id,
         email,
-        // name, // ❌ ลบออก
         role,
         exp,
         iat,

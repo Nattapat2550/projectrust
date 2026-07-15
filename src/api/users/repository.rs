@@ -7,7 +7,7 @@ use super::schema::{UserMeRow, UserRow};
 pub async fn fetch_all_users(db: &DB) -> Result<Vec<UserRow>, AppError> {
     let rows = sqlx::query(
         r#"
-        SELECT id, user_id::text AS user_id, email, tel, username, first_name, last_name, status, role, oauth_provider AS provider, is_email_verified AS is_verified 
+        SELECT id::text AS id, email, tel, username, first_name, last_name, status, role, oauth_provider AS provider, is_email_verified AS is_verified 
         FROM users 
         ORDER BY id DESC
         "#
@@ -19,7 +19,6 @@ pub async fn fetch_all_users(db: &DB) -> Result<Vec<UserRow>, AppError> {
         .into_iter()
         .map(|r| UserRow {
             id: r.get("id"),
-            user_id: r.get("user_id"),
             email: r.get("email"),
             tel: r.get("tel"),
             username: r.get("username"),
@@ -35,15 +34,15 @@ pub async fn fetch_all_users(db: &DB) -> Result<Vec<UserRow>, AppError> {
     Ok(users)
 }
 
-pub async fn update_user_role_and_status(db: &DB, id: i32, role: Option<String>, status: Option<String>) -> Result<Option<UserRow>, AppError> {
+pub async fn update_user_role_and_status(db: &DB, id: &str, role: Option<String>, status: Option<String>) -> Result<Option<UserRow>, AppError> {
     let row = sqlx::query(
         r#"
         UPDATE users
         SET role = COALESCE($2, role),
             status = COALESCE($3, status),
             updated_at = NOW()
-        WHERE id = $1
-        RETURNING id, user_id::text AS user_id, email, tel, username, first_name, last_name, status, role, oauth_provider AS provider, is_email_verified AS is_verified
+        WHERE id = $1::uuid
+        RETURNING id::text AS id, email, tel, username, first_name, last_name, status, role, oauth_provider AS provider, is_email_verified AS is_verified
         "#,
     )
     .bind(id)
@@ -54,7 +53,6 @@ pub async fn update_user_role_and_status(db: &DB, id: i32, role: Option<String>,
 
     Ok(row.map(|r| UserRow {
         id: r.get("id"),
-        user_id: r.get("user_id"),
         email: r.get("email"),
         tel: r.get("tel"),
         username: r.get("username"),
@@ -67,12 +65,12 @@ pub async fn update_user_role_and_status(db: &DB, id: i32, role: Option<String>,
     }))
 }
 
-pub async fn fetch_user_by_id(db: &DB, id: i32) -> Result<Option<UserMeRow>, AppError> {
+pub async fn fetch_user_by_id(db: &DB, id: &str) -> Result<Option<UserMeRow>, AppError> {
     let row = sqlx::query(
         r#"
-        SELECT id, user_id::text AS user_id, username, email, tel, first_name, last_name, status, role, profile_picture_url, is_email_verified
+        SELECT id::text AS id, username, email, tel, first_name, last_name, status, role, profile_picture_url, is_email_verified
         FROM users
-        WHERE id = $1
+        WHERE id = $1::uuid
         "#,
     )
     .bind(id)
@@ -81,7 +79,6 @@ pub async fn fetch_user_by_id(db: &DB, id: i32) -> Result<Option<UserMeRow>, App
 
     Ok(row.map(|r| UserMeRow {
         id: r.get("id"),
-        user_id: r.get("user_id"),
         username: r.get("username"),
         email: r.get("email"),
         tel: r.get("tel"),
@@ -96,7 +93,7 @@ pub async fn fetch_user_by_id(db: &DB, id: i32) -> Result<Option<UserMeRow>, App
 
 pub async fn update_user_profile(
     db: &DB,
-    id: i32,
+    id: &str,
     username: Option<String>,
     tel: Option<String>,
     first_name: Option<String>,
@@ -112,8 +109,8 @@ pub async fn update_user_profile(
             last_name = COALESCE($5, last_name),
             profile_picture_url = COALESCE($6, profile_picture_url),
             updated_at = NOW()
-        WHERE id = $1
-        RETURNING id, user_id::text AS user_id, username, email, tel, first_name, last_name, status, role, profile_picture_url, is_email_verified
+        WHERE id = $1::uuid
+        RETURNING id::text AS id, username, email, tel, first_name, last_name, status, role, profile_picture_url, is_email_verified
         "#,
     )
     .bind(id)
@@ -127,7 +124,6 @@ pub async fn update_user_profile(
 
     Ok(row.map(|r| UserMeRow {
         id: r.get("id"),
-        user_id: r.get("user_id"),
         username: r.get("username"),
         email: r.get("email"),
         tel: r.get("tel"),

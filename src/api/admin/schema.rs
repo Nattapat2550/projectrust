@@ -16,7 +16,7 @@ pub struct UpdateClientBody {
 
 #[derive(Debug, Serialize, Deserialize)]
 pub struct ClientRow {
-    pub id: i32,
+    pub id: String,
     pub name: String,
     pub api_key: String,
     pub is_active: bool,

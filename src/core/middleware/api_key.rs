@@ -12,13 +12,12 @@ use crate::core::errors::AppError;
 
 #[derive(Clone, Debug, Serialize, Deserialize)]
 pub struct ApiClient {
-    pub id: i32,
+    pub id: String,
     pub name: String,
     pub api_key: String,
     pub is_active: bool,
 }
 
-/// Middleware: require x-api-key (เหมือน pure-api1: app.use("/api", apiKeyAuth))
 pub async fn mw_api_key_auth(
     Extension(db): Extension<DB>,
     mut req: Request,
@@ -37,7 +36,7 @@ pub async fn mw_api_key_auth(
 
     let row = sqlx::query(
         r#"
-        SELECT id, name, api_key, is_active
+        SELECT id::text AS id, name, api_key, is_active
         FROM api_clients
         WHERE api_key = $1
         LIMIT 1

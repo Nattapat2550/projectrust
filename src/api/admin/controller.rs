@@ -22,17 +22,17 @@ pub async fn create_client(
 
 pub async fn update_client(
     State(db): State<DB>,
-    axum::extract::Path(id): axum::extract::Path<i32>,
+    axum::extract::Path(id): axum::extract::Path<String>,
     Json(body): Json<UpdateClientBody>,
 ) -> Result<Json<serde_json::Value>, AppError> {
-    let updated = service::update_client(&db, id, body).await?;
+    let updated = service::update_client(&db, &id, body).await?;
     Ok(Json(json!({ "ok": true, "data": updated })))
 }
 
 pub async fn delete_client(
     State(db): State<DB>,
-    axum::extract::Path(id): axum::extract::Path<i32>,
+    axum::extract::Path(id): axum::extract::Path<String>,
 ) -> Result<Json<serde_json::Value>, AppError> {
-    service::delete_client(&db, id).await?;
+    service::delete_client(&db, &id).await?;
     Ok(Json(json!({ "ok": true })))
 }

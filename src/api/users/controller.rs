@@ -19,7 +19,7 @@ pub async fn get_me(
     State((db, _)): AppState,
     Extension(user): Extension<AuthUser>,
 ) -> Result<Json<Value>, AppError> {
-    let u = service::get_by_id(&db, user.id).await?;
+    let u = service::get_by_id(&db, &user.id).await?;
     Ok(Json(json!({ "ok": true, "data": u })))
 }
 
@@ -29,7 +29,7 @@ pub async fn patch_me(
     Extension(user): Extension<AuthUser>,
     Json(body): Json<UpdateMeBody>,
 ) -> Result<Json<Value>, AppError> {
-    let u = service::update_me(&db, user.id, body).await?;
+    let u = service::update_me(&db, &user.id, body).await?;
     Ok(Json(json!({ "ok": true, "data": u })))
 }
 
@@ -42,10 +42,10 @@ pub async fn list_users(State((db, _)): AppState) -> Result<Json<Value>, AppErro
 // PATCH /api/users/:id/role
 pub async fn update_role(
     State((db, _)): AppState,
-    Path(id): Path<i32>,
+    Path(id): Path<String>,
     Json(body): Json<UpdateRoleBody>,
 ) -> Result<Json<Value>, AppError> {
     // ส่งผ่านข้อมูล status ที่เป็น Option ได้เลย
-    let user = service::update_role(&db, id, body.role, body.status).await?;
+    let user = service::update_role(&db, &id, body.role, body.status).await?;
     Ok(Json(json!({ "ok": true, "data": user })))
 }

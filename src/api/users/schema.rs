@@ -2,8 +2,7 @@ use serde::{Deserialize, Serialize};
 
 #[derive(Debug, Serialize, Deserialize)]
 pub struct UserRow {
-    pub id: i32,
-    pub user_id: String, // ดึงจาก DB (UUID) แปลงเป็น String
+    pub id: String,
     pub email: String,
     pub tel: Option<String>,
     pub username: Option<String>,
@@ -19,8 +18,7 @@ pub struct UserRow {
 // ✅ pure-api1 compatibility: /api/users/me response shape
 #[derive(Debug, Serialize, Deserialize)]
 pub struct UserMeRow {
-    pub id: i32,
-    pub user_id: String,
+    pub id: String,
     pub username: Option<String>,
     pub email: String,
     pub tel: Option<String>,

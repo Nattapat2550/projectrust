@@ -1,19 +1,13 @@
 -- =======================================================
 --  DATABASE SCHEMA สำหรับ pure-api (PostgreSQL)
+--  ✅ UUID v7 เป็น Primary Key ทุกตาราง
 -- =======================================================
--- =======================================================
---  DATABASE SCHEMA สำหรับ pure-api (PostgreSQL)
--- =======================================================
-
--- (ใช้ extension นี้ได้ถ้าต้องการ uuid ฯลฯ)
-CREATE EXTENSION IF NOT EXISTS "uuid-ossp";
 
 -- -------------------------------------------------------
 -- 1) USERS
 -- -------------------------------------------------------
 CREATE TABLE IF NOT EXISTS users (
-  id                   SERIAL PRIMARY KEY,
-  user_id              UUID UNIQUE NOT NULL DEFAULT gen_random_uuid(), -- สุ่ม UUID v4 อัตโนมัติ
+  id                   UUID PRIMARY KEY DEFAULT gen_random_uuid(),
   username             VARCHAR(50) UNIQUE,
   email                VARCHAR(255) UNIQUE NOT NULL,
   tel                  VARCHAR(20) UNIQUE,                             -- เบอร์โทร (UNIQUE)
@@ -35,15 +29,14 @@ CREATE TABLE IF NOT EXISTS users (
 
 CREATE INDEX IF NOT EXISTS idx_users_email ON users(email);
 CREATE INDEX IF NOT EXISTS idx_users_oauth ON users(oauth_provider, oauth_id);
-CREATE INDEX IF NOT EXISTS idx_users_user_id ON users(user_id);
 
 
 -- -------------------------------------------------------
 -- 2) VERIFICATION CODES (ยืนยันอีเมล)
 -- -------------------------------------------------------
 CREATE TABLE IF NOT EXISTS verification_codes (
-  id          SERIAL PRIMARY KEY,
-  user_id     INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+  id          UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  user_id     UUID NOT NULL REFERENCES users(id) ON DELETE CASCADE,
   code        VARCHAR(6) NOT NULL,
   expires_at  TIMESTAMPTZ NOT NULL
 );
@@ -54,8 +47,8 @@ CREATE INDEX IF NOT EXISTS idx_verif_user_exp ON verification_codes(user_id, exp
 -- 3) PASSWORD RESET TOKENS (ลืมรหัสผ่าน)
 -- -------------------------------------------------------
 CREATE TABLE IF NOT EXISTS password_reset_tokens (
-  id         SERIAL PRIMARY KEY,
-  user_id    INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+  id         UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  user_id    UUID NOT NULL REFERENCES users(id) ON DELETE CASCADE,
   token      VARCHAR(255) UNIQUE NOT NULL,
   expires_at TIMESTAMPTZ NOT NULL,
   is_used    BOOLEAN NOT NULL DEFAULT FALSE,
@@ -77,7 +70,7 @@ CREATE TABLE IF NOT EXISTS homepage_content (
 -- 5) CAROUSEL ITEMS
 -- -------------------------------------------------------
 CREATE TABLE IF NOT EXISTS carousel_items (
-  id           SERIAL PRIMARY KEY,
+  id           UUID PRIMARY KEY DEFAULT gen_random_uuid(),
   item_index   INTEGER NOT NULL DEFAULT 0,
   title        VARCHAR(255),
   subtitle     VARCHAR(255),
@@ -93,7 +86,7 @@ CREATE INDEX IF NOT EXISTS idx_carousel_item_index ON carousel_items(item_index,
 -- 6) API CLIENTS
 -- -------------------------------------------------------
 CREATE TABLE IF NOT EXISTS api_clients (
-  id         SERIAL PRIMARY KEY,
+  id         UUID PRIMARY KEY DEFAULT gen_random_uuid(),
   name       VARCHAR(100) NOT NULL,
   api_key    VARCHAR(255) NOT NULL UNIQUE,
   is_active  BOOLEAN NOT NULL DEFAULT TRUE,

@@ -4,7 +4,7 @@ use sqlx::types::chrono::NaiveDateTime;
 #[derive(Debug, Serialize, Deserialize)]
 // ❌ ลบ #[serde(rename_all = "camelCase")] ออก
 pub struct CarouselItem {
-    pub id: i32,
+    pub id: String,
     pub item_index: i32,          // ✅ เพิ่ม field นี้ (Pure API มี)
     pub image_dataurl: String,    // ✅ เปลี่ยนชื่อจาก image_url เป็น image_dataurl
     pub title: Option<String>,

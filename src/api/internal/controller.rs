@@ -87,9 +87,9 @@ pub async fn list_clients(State(db): State<DB>) -> Result<Json<Vec<ClientRow>>, 
     Ok(Json(clients))
 }
 
-pub async fn set_client_active(State(db): State<DB>, Path(id): Path<i32>, Json(body): Json<serde_json::Value>) -> Result<Json<()>, AppError> {
+pub async fn set_client_active(State(db): State<DB>, Path(id): Path<String>, Json(body): Json<serde_json::Value>) -> Result<Json<()>, AppError> {
     let active = body.get("is_active").and_then(|v| v.as_bool()).unwrap_or(true);
-    service::set_client_active(&db, id, active).await?;
+    service::set_client_active(&db, &id, active).await?;
     Ok(Json(()))
 }
 

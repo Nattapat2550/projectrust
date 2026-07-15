@@ -5,9 +5,8 @@ use crate::core::utils::jwt;
 
 #[derive(Clone, Debug, Serialize, Deserialize)]
 pub struct AuthUser {
-    pub id: i32,
+    pub id: String,
     pub email: String,
-    // pub name: String, // ❌ ลบออก
     pub role: String,
 }
 
@@ -27,7 +26,6 @@ pub async fn mw_jwt_auth(mut req: Request, next: Next) -> Result<Response, AppEr
     let user = AuthUser {
         id: claims.sub,
         email: claims.email,
-        // name: claims.name, // ❌ ลบออก
         role: claims.role,
     };
 

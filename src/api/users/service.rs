@@ -9,7 +9,7 @@ pub async fn list_users(db: &DB) -> Result<Vec<UserRow>, AppError> {
 }
 
 /// Admin: PATCH /api/users/:id/role
-pub async fn update_role(db: &DB, id: i32, role: Option<String>, status: Option<String>) -> Result<UserRow, AppError> {
+pub async fn update_role(db: &DB, id: &str, role: Option<String>, status: Option<String>) -> Result<UserRow, AppError> {
     let user_opt = repository::update_user_role_and_status(db, id, role, status).await?;
 
     match user_opt {
@@ -19,7 +19,7 @@ pub async fn update_role(db: &DB, id: i32, role: Option<String>, status: Option<
 }
 
 /// pure-api1: GET /api/users/me
-pub async fn get_by_id(db: &DB, id: i32) -> Result<UserMeRow, AppError> {
+pub async fn get_by_id(db: &DB, id: &str) -> Result<UserMeRow, AppError> {
     let user_opt = repository::fetch_user_by_id(db, id).await?;
 
     match user_opt {
@@ -29,7 +29,7 @@ pub async fn get_by_id(db: &DB, id: i32) -> Result<UserMeRow, AppError> {
 }
 
 /// pure-api1: PATCH /api/users/me
-pub async fn update_me(db: &DB, id: i32, body: UpdateMeBody) -> Result<UserMeRow, AppError> {
+pub async fn update_me(db: &DB, id: &str, body: UpdateMeBody) -> Result<UserMeRow, AppError> {
     let user_opt = repository::update_user_profile(
         db, id, body.username, body.tel, body.first_name, body.last_name, body.profile_picture_url
     ).await?;

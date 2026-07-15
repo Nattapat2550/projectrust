@@ -7,7 +7,7 @@ pub async fn list(db: &DB) -> Result<Vec<CarouselItem>, AppError> {
     // ✅ Select ให้ครบทุก field ตาม struct ใหม่
     let rows = sqlx::query(
         r#"
-        SELECT id, item_index, image_dataurl, title, subtitle, description, created_at, updated_at
+        SELECT id::text AS id, item_index, image_dataurl, title, subtitle, description, created_at, updated_at
         FROM carousel_items
         ORDER BY item_index ASC, id ASC
         "#
@@ -20,7 +20,7 @@ pub async fn list(db: &DB) -> Result<Vec<CarouselItem>, AppError> {
         out.push(CarouselItem {
             id: r.get("id"),
             item_index: r.get("item_index"),
-            image_dataurl: r.get("image_dataurl"), // Map DB column -> Struct field
+            image_dataurl: r.get("image_dataurl"),
             title: r.get("title"),
             subtitle: r.get("subtitle"),
             description: r.get("description"),
@@ -37,14 +37,17 @@ pub async fn create(db: &DB, body: CreateCarouselBody) -> Result<CarouselItem, A
         return Err(AppError::bad_request("image_dataurl is required"));
     }
 
+    let new_id = uuid::Uuid::now_v7().to_string();
+
     // ✅ Insert item_index และ image_dataurl
     let row = sqlx::query(
         r#"
-        INSERT INTO carousel_items (item_index, image_dataurl, title, subtitle, description, created_at, updated_at)
-        VALUES ($1, $2, $3, $4, $5, NOW(), NOW())
-        RETURNING id, item_index, image_dataurl, title, subtitle, description, created_at, updated_at
+        INSERT INTO carousel_items (id, item_index, image_dataurl, title, subtitle, description, created_at, updated_at)
+        VALUES ($1::uuid, $2, $3, $4, $5, $6, NOW(), NOW())
+        RETURNING id::text AS id, item_index, image_dataurl, title, subtitle, description, created_at, updated_at
         "#
     )
+    .bind(&new_id)
     .bind(body.item_index.unwrap_or(0)) // default 0 ถ้าไม่ส่งมา
     .bind(body.image_dataurl.trim())
     .bind(body.title)
@@ -65,9 +68,9 @@ pub async fn create(db: &DB, body: CreateCarouselBody) -> Result<CarouselItem, A
     })
 }
 
-pub async fn update(db: &DB, id: i32, body: UpdateCarouselBody) -> Result<CarouselItem, AppError> {
+pub async fn update(db: &DB, id: &str, body: UpdateCarouselBody) -> Result<CarouselItem, AppError> {
     let existing = sqlx::query(
-        "SELECT id, item_index, image_dataurl, title, subtitle, description FROM carousel_items WHERE id = $1"
+        "SELECT id::text AS id, item_index, image_dataurl, title, subtitle, description FROM carousel_items WHERE id = $1::uuid"
     )
     .bind(id)
     .fetch_optional(&db.pool)
@@ -98,8 +101,8 @@ pub async fn update(db: &DB, id: i32, body: UpdateCarouselBody) -> Result<Carous
         r#"
         UPDATE carousel_items
         SET item_index=$2, image_dataurl=$3, title=$4, subtitle=$5, description=$6, updated_at=NOW()
-        WHERE id=$1
-        RETURNING id, item_index, image_dataurl, title, subtitle, description, created_at, updated_at
+        WHERE id=$1::uuid
+        RETURNING id::text AS id, item_index, image_dataurl, title, subtitle, description, created_at, updated_at
         "#
     )
     .bind(id)
@@ -123,8 +126,8 @@ pub async fn update(db: &DB, id: i32, body: UpdateCarouselBody) -> Result<Carous
     })
 }
 
-pub async fn delete(db: &DB, id: i32) -> Result<(), AppError> {
-    let res = sqlx::query("DELETE FROM carousel_items WHERE id = $1").bind(id).execute(&db.pool).await?;
+pub async fn delete(db: &DB, id: &str) -> Result<(), AppError> {
+    let res = sqlx::query("DELETE FROM carousel_items WHERE id = $1::uuid").bind(id).execute(&db.pool).await?;
     if res.rows_affected() == 0 {
         return Err(AppError::not_found("CAROUSEL_NOT_FOUND", "Item not found"));
     }

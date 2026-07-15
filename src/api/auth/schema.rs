@@ -11,7 +11,6 @@ pub struct VerifyCodeBody {
     pub code: String,
 }
 
-// เพิ่มการตั้งค่า tel/ชื่อ ได้ตั้งแต่ตอนสมัคร
 #[derive(Debug, Serialize, Deserialize)]
 pub struct CompleteProfileBody {
     pub email: String,
@@ -57,8 +56,7 @@ pub struct AuthResponse {
 
 #[derive(Debug, Serialize, Deserialize)]
 pub struct UserResponse {
-    pub id: i32,
-    pub user_id: String,
+    pub id: String,
     pub email: String,
     pub tel: Option<String>,
     pub username: Option<String>,

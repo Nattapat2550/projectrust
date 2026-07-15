@@ -8,7 +8,7 @@ use super::schema::{ClientRow, CreateClientBody, UpdateClientBody};
 pub async fn list_clients(db: &DB) -> Result<Vec<ClientRow>, AppError> {
     let rows = sqlx::query(
         r#"
-        SELECT id, name, api_key, is_active, created_at
+        SELECT id::text AS id, name, api_key, is_active, created_at
         FROM api_clients
         ORDER BY id DESC
         "#,
@@ -39,14 +39,16 @@ pub async fn create_client(db: &DB, body: CreateClientBody) -> Result<ClientRow,
     }
 
     let is_active = body.is_active.unwrap_or(true);
+    let new_id = uuid::Uuid::now_v7().to_string();
 
     let row = sqlx::query(
         r#"
-        INSERT INTO api_clients (name, api_key, is_active)
-        VALUES ($1, $2, $3)
-        RETURNING id, name, api_key, is_active, created_at
+        INSERT INTO api_clients (id, name, api_key, is_active)
+        VALUES ($1::uuid, $2, $3, $4)
+        RETURNING id::text AS id, name, api_key, is_active, created_at
         "#,
     )
+    .bind(&new_id)
     .bind(body.name.trim())
     .bind(body.api_key.trim())
     .bind(is_active)
@@ -62,12 +64,12 @@ pub async fn create_client(db: &DB, body: CreateClientBody) -> Result<ClientRow,
     })
 }
 
-pub async fn update_client(db: &DB, id: i32, body: UpdateClientBody) -> Result<ClientRow, AppError> {
+pub async fn update_client(db: &DB, id: &str, body: UpdateClientBody) -> Result<ClientRow, AppError> {
     let existing = sqlx::query(
         r#"
-        SELECT id, name, api_key, is_active, created_at
+        SELECT id::text AS id, name, api_key, is_active, created_at
         FROM api_clients
-        WHERE id = $1
+        WHERE id = $1::uuid
         "#,
     )
     .bind(id)
@@ -101,8 +103,8 @@ pub async fn update_client(db: &DB, id: i32, body: UpdateClientBody) -> Result<C
         r#"
         UPDATE api_clients
         SET name = $2, api_key = $3, is_active = $4
-        WHERE id = $1
-        RETURNING id, name, api_key, is_active, created_at
+        WHERE id = $1::uuid
+        RETURNING id::text AS id, name, api_key, is_active, created_at
         "#,
     )
     .bind(id)
@@ -121,8 +123,8 @@ pub async fn update_client(db: &DB, id: i32, body: UpdateClientBody) -> Result<C
     })
 }
 
-pub async fn delete_client(db: &DB, id: i32) -> Result<(), AppError> {
-    let res = sqlx::query("DELETE FROM api_clients WHERE id = $1")
+pub async fn delete_client(db: &DB, id: &str) -> Result<(), AppError> {
+    let res = sqlx::query("DELETE FROM api_clients WHERE id = $1::uuid")
         .bind(id)
         .execute(&db.pool)
         .await?;
